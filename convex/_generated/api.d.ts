@@ -9,6 +9,7 @@
  */
 
 import type * as auth from "../auth.js";
+import type * as crons from "../crons.js";
 import type * as events from "../events.js";
 import type * as http from "../http.js";
 import type * as lib_auth from "../lib/auth.js";
@@ -16,6 +17,7 @@ import type * as lib_normalizePhone from "../lib/normalizePhone.js";
 import type * as lib_ticketCode from "../lib/ticketCode.js";
 import type * as registrations from "../registrations.js";
 import type * as seed from "../seed.js";
+import type * as sms from "../sms.js";
 import type * as staff from "../staff.js";
 
 import type {
@@ -26,6 +28,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
+  crons: typeof crons;
   events: typeof events;
   http: typeof http;
   "lib/auth": typeof lib_auth;
@@ -33,6 +36,7 @@ declare const fullApi: ApiFromModules<{
   "lib/ticketCode": typeof lib_ticketCode;
   registrations: typeof registrations;
   seed: typeof seed;
+  sms: typeof sms;
   staff: typeof staff;
 }>;
 

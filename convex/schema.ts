@@ -11,7 +11,7 @@ export default defineSchema({
     theme: v.optional(v.string()),
     venue: v.string(),
     startsAt: v.number(),               // ms since epoch (UTC)
-    capacity: v.number(),
+    capacity: v.optional(v.number()),
     registrationOpen: v.boolean(),
     confirmationSmsEnabled: v.boolean(),
   }).index("by_slug", ["slug"]),
@@ -81,6 +81,14 @@ export default defineSchema({
     error: v.optional(v.string()),
     providerResponse: v.optional(v.string()),
   }).index("by_campaign", ["campaignId"]).index("by_status", ["status"]),
+
+  rateLimits: defineTable({
+    key: v.string(),
+    count: v.number(),
+    expiresAt: v.number(),
+  })
+    .index("by_key", ["key"])
+    .index("by_expiresAt", ["expiresAt"]),
 
   auditLog: defineTable({
     actor: v.string(),

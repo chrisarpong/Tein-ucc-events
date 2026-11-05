@@ -45,7 +45,8 @@ export default function TicketPage({
   const handleDownloadIcs = () => {
     if (!ticket) return;
 
-    // Saturday, 7 November 2026 09:00 UTC to 14:00 UTC
+    // The event start is confirmed; do not invent an end time.
+    const stamp = new Date().toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
     const icsContent = [
       "BEGIN:VCALENDAR",
       "VERSION:2.0",
@@ -54,9 +55,8 @@ export default function TicketPage({
       "METHOD:PUBLISH",
       "BEGIN:VEVENT",
       "UID:wes-2026-ticket-" + code + "@tein-ucc",
-      "DTSTAMP:20261105T000000Z",
+      `DTSTAMP:${stamp}`,
       "DTSTART:20261107T090000Z",
-      "DTEND:20261107T140000Z",
       "SUMMARY:Women Empowerment Summit 2026 - TEIN-UCC",
       "DESCRIPTION:Theme: Empowered Women, Transformed Futures. Your Ticket Code: " +
         code,
@@ -78,7 +78,7 @@ export default function TicketPage({
 
   const handleWhatsAppShare = () => {
     const text = encodeURIComponent(
-      `I've registered for the TEIN-UCC Women Empowerment Summit! Sat 7 Nov, 9AM at SGS Auditorium, UCC. Join me and register here: https://tein-ucc-events.vercel.app`
+      `I've registered for the TEIN-UCC Women Empowerment Summit! Saturday 7 November at 9:00 AM, SGS Auditorium, UCC. Join me: ${window.location.origin}`
     );
     window.open(`https://api.whatsapp.com/send?text=${text}`, "_blank");
   };
@@ -131,7 +131,7 @@ export default function TicketPage({
   const isCancelled = ticket.status === "cancelled";
 
   return (
-    <div className="min-h-screen bg-slate-100 py-8 px-4 sm:px-6">
+    <div className="ticket-page min-h-screen py-8 px-4 sm:px-6">
       <div className="max-w-md mx-auto space-y-4">
         {/* Back Link */}
         <div className="flex items-center justify-between">
@@ -143,7 +143,7 @@ export default function TicketPage({
             <span>Home</span>
           </Link>
           <span className="text-xs font-semibold text-emerald-800 bg-emerald-100/80 px-2.5 py-1 rounded-full">
-            TEIN-UCC Verified Ticket
+            TEIN-UCC · Women Empowerment Summit
           </span>
         </div>
 
@@ -151,18 +151,18 @@ export default function TicketPage({
         <div className="bg-amber-500/15 border border-amber-500/30 p-3.5 rounded-xl flex items-center gap-3 text-amber-900 shadow-xs">
           <Camera className="w-5 h-5 text-amber-600 shrink-0" />
           <p className="text-xs font-medium leading-tight">
-            <strong>Tip:</strong> Take a screenshot of this ticket now so you can
-            easily access your QR code at the door without internet.
+            <strong>Save your ticket:</strong> Keep a screenshot on your phone in
+            case mobile data is unavailable at the venue.
           </p>
         </div>
 
         {/* Ticket Container / Pass */}
-        <div className="bg-white rounded-3xl shadow-xl border border-slate-200 overflow-hidden">
+        <div className="ticket-pass bg-white border border-slate-200 overflow-hidden">
           {/* Header */}
-          <div className="bg-gradient-to-br from-[#064E2B] via-[#075931] to-[#0A8F3F] text-white p-6 relative">
+          <div className="ticket-pass-header text-white p-6 relative">
             <div className="flex items-center justify-between mb-3">
               <span className="text-[10px] uppercase tracking-wider font-extrabold text-green-200 bg-black/25 px-2.5 py-1 rounded-full">
-                Official Admission Pass
+                SUMMIT TICKET
               </span>
               <span
                 className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full ${
@@ -177,7 +177,7 @@ export default function TicketPage({
                   ? "Waitlisted"
                   : isCancelled
                   ? "Cancelled"
-                  : "Confirmed"}
+                  : "Registered"}
               </span>
             </div>
 
@@ -194,7 +194,7 @@ export default function TicketPage({
 
           {/* Ticket Details Body */}
           <div className="p-6 space-y-6">
-            {/* Attendee Name & Type */}
+            {/* Show only the attendee name and ticket code on the public pass. */}
             <div className="text-center pb-4 border-b border-dashed border-slate-200">
               <div className="text-xs text-slate-500 uppercase tracking-wider font-semibold">
                 Attendee
@@ -202,15 +202,6 @@ export default function TicketPage({
               <div className="text-xl font-extrabold text-slate-900 mt-0.5">
                 {ticket.fullName}
               </div>
-              <div className="inline-block mt-1 text-xs font-semibold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 capitalize">
-                {ticket.attendeeType}{" "}
-                {ticket.level ? `• Level ${ticket.level}` : ""}
-              </div>
-              {ticket.programme && (
-                <div className="text-xs text-slate-500 mt-1">
-                  {ticket.programme}
-                </div>
-              )}
             </div>
 
             {/* QR Code Section */}
@@ -255,7 +246,7 @@ export default function TicketPage({
               </div>
               <div className="flex items-center gap-3">
                 <Clock className="w-4 h-4 text-[#0A8F3F] shrink-0" />
-                <span>9:00 AM Prompt (Registration opens 8:00 AM)</span>
+                  <span>Programme starts at 9:00 AM</span>
               </div>
               <div className="flex items-center gap-3">
                 <MapPin className="w-4 h-4 text-[#E11D2A] shrink-0" />
@@ -288,8 +279,12 @@ export default function TicketPage({
           </div>
 
           {/* Ticket Footer Tear */}
-          <div className="bg-slate-50 border-t border-dashed border-slate-200 p-3 text-center text-[10px] text-slate-500">
-            Present this QR code or ticket code at the entrance for entry
+          <div className="ticket-instructions border-t border-dashed p-3 text-center text-xs">
+            {isWaitlisted
+              ? "This is a waitlist confirmation, not an admission ticket. Please wait for an update from the event team."
+              : isCancelled
+              ? "This registration has been cancelled and cannot be used for admission. Contact the event team if this is a mistake."
+              : "Show this QR code or ticket code at the entrance for check-in."}
           </div>
         </div>
 

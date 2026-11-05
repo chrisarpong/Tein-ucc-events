@@ -14,14 +14,16 @@ export const getPublic = query({
       return null;
     }
 
-    const registeredCount = await ctx.db
-      .query("registrations")
-      .withIndex("by_event_status", (q) =>
-        q.eq("eventId", event._id).eq("status", "registered")
-      )
-      .collect();
-
-    const spotsLeft = registeredCount.length < event.capacity;
+    let spotsLeft = true;
+    if (event.capacity !== undefined) {
+      const registeredCount = await ctx.db
+        .query("registrations")
+        .withIndex("by_event_status", (q) =>
+          q.eq("eventId", event._id).eq("status", "registered")
+        )
+        .collect();
+      spotsLeft = registeredCount.length < event.capacity;
+    }
 
     return {
       _id: event._id,

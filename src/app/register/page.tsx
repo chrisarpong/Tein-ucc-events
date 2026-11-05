@@ -38,9 +38,7 @@ const registerSchema = z.object({
   hall: z.string().optional(),
   howHeard: z.string().optional(),
   specialNeeds: z.string().optional(),
-  consentComms: z.boolean().refine((val) => val === true, {
-    message: "Consent to receive event SMS notifications is required",
-  }),
+  consentComms: z.boolean(),
   website: z.string().optional(), // Honeypot
 });
 
@@ -66,8 +64,8 @@ export default function RegisterPage() {
     resolver: zodResolver(registerSchema),
     defaultValues: {
       attendeeType: "student",
-      consentComms: true,
-      gender: "female",
+      consentComms: false,
+      gender: "",
       website: "",
     },
   });
@@ -163,9 +161,9 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-16">
+    <div className="public-form-page min-h-screen pb-16">
       {/* Header Bar */}
-      <header className="bg-[#064E2B] text-white py-4 px-4 border-b border-[#0A8F3F]/30 sticky top-0 z-30">
+      <header className="form-header sticky top-0 z-30">
         <div className="max-w-2xl mx-auto flex items-center justify-between">
           <Link
             href="/"
@@ -188,16 +186,16 @@ export default function RegisterPage() {
         </div>
       </header>
 
-      <main className="max-w-2xl mx-auto px-4 pt-6">
+      <main className="form-main max-w-3xl mx-auto px-4 pt-6">
         {/* Summit Quick Banner */}
-        <div className="bg-gradient-to-r from-[#064E2B] to-[#0A8F3F] text-white p-5 rounded-2xl shadow-sm mb-6">
-          <div className="text-xs text-emerald-200 font-bold uppercase tracking-wider mb-1">
-            Free Official Registration
+        <div className="form-event-summary mb-6">
+          <div className="eyebrow">
+            TEIN-UCC · Women&apos;s Commissioner
           </div>
-          <h1 className="text-2xl font-black text-white mb-2">
+          <h1 className="text-2xl font-black mb-2">
             Women Empowerment Summit &apos;26
           </h1>
-          <div className="flex flex-wrap items-center gap-4 text-xs text-emerald-100 pt-1 border-t border-emerald-600/40">
+          <div className="form-event-facts flex flex-wrap items-center gap-4 text-xs pt-1">
             <span className="flex items-center gap-1.5">
               <Calendar className="w-3.5 h-3.5" />
               <span>Sat, 7 Nov 2026</span>
@@ -216,7 +214,7 @@ export default function RegisterPage() {
             <div className="mt-3 bg-amber-500/20 border border-amber-300/40 text-amber-100 text-xs px-3 py-1.5 rounded-lg flex items-center gap-2">
               <AlertCircle className="w-4 h-4 text-amber-300 shrink-0" />
               <span>
-                Standard capacity reached. Additional registrations will be placed on the priority waitlist.
+                Registration is full. New registrations will be added to the waitlist.
               </span>
             </div>
           )}
@@ -262,7 +260,7 @@ export default function RegisterPage() {
         {/* Form Container */}
         <form
           onSubmit={handleSubmit(onSubmit)}
-          className="bg-white p-6 sm:p-8 rounded-2xl border border-slate-200 shadow-sm space-y-6"
+          className="attendee-form bg-white p-6 sm:p-8 border border-slate-200 space-y-6"
         >
           {/* Honeypot anti-bot field (hidden from genuine users) */}
           <div className="hidden" aria-hidden="true">
@@ -351,9 +349,11 @@ export default function RegisterPage() {
                 className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-slate-300 focus:border-[#0A8F3F] focus:outline-none focus:ring-2 focus:ring-[#0A8F3F]/20 transition bg-white"
                 {...register("gender")}
               >
+                <option value="">Select if you wish</option>
                 <option value="female">Female</option>
                 <option value="male">Male</option>
-                <option value="other">Prefer not to say</option>
+                <option value="another">Another identity</option>
+                <option value="prefer_not_to_say">Prefer not to say</option>
               </select>
             </div>
           </div>
@@ -473,6 +473,29 @@ export default function RegisterPage() {
             {/* Special Needs / Accessibility */}
             <div>
               <label
+                htmlFor="howHeard"
+                className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1"
+              >
+                How did you hear about the summit?{" "}
+                <span className="text-slate-400 font-normal">(Optional)</span>
+              </label>
+              <select
+                id="howHeard"
+                className="w-full px-3.5 py-2.5 text-sm border border-slate-300 focus:border-[#0A8F3F] focus:outline-none focus:ring-2 focus:ring-[#0A8F3F]/20 bg-white"
+                {...register("howHeard")}
+              >
+                <option value="">Choose an option</option>
+                <option value="whatsapp">WhatsApp</option>
+                <option value="social_media">Social media</option>
+                <option value="friend_or_family">Friend or family</option>
+                <option value="campus_announcement">Campus announcement</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+
+            {/* Special Needs / Accessibility */}
+            <div>
+              <label
                 htmlFor="specialNeeds"
                 className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1"
               >
@@ -490,7 +513,7 @@ export default function RegisterPage() {
           </div>
 
           {/* Consent Checkbox */}
-          <div className="pt-2 border-t border-slate-100">
+          <div className="sms-consent pt-2 border-t border-slate-100">
             <label className="flex items-start gap-3 cursor-pointer">
               <input
                 type="checkbox"
@@ -498,9 +521,8 @@ export default function RegisterPage() {
                 {...register("consentComms")}
               />
               <span className="text-xs text-slate-600 leading-snug">
-                I agree to receive event SMS updates, reminder notifications, and
-                summit materials from TEIN-UCC. Data is handled under the Ghana Data
-                Protection Act, 2012 (Act 843).{" "}
+                I would like to receive event updates by SMS from TEIN-UCC. This is
+                optional and I can still register if I leave this unchecked. See our{" "}
                 <Link
                   href="/privacy"
                   target="_blank"
@@ -508,7 +530,7 @@ export default function RegisterPage() {
                 >
                   Read Privacy Policy
                 </Link>
-                . <span className="text-red-500">*</span>
+                .
               </span>
             </label>
             {errors.consentComms && (
@@ -539,7 +561,7 @@ export default function RegisterPage() {
 
           <div className="flex items-center justify-center gap-2 text-[11px] text-slate-500">
             <ShieldCheck className="w-4 h-4 text-emerald-600" />
-            <span>Secure 256-bit encrypted submission</span>
+            <span>Your details are used to organise summit registration and admission.</span>
           </div>
         </form>
       </main>

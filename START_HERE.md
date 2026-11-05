@@ -21,7 +21,7 @@ This is a real production system. The event is **Saturday 7 November 2026, 9:00 
 5. **Build phase by phase** through §12 in the order the tracker gives (P0, P1, P2, Gate A, P3A, Gate A2, **P4 check-in BEFORE P3 CRM**, Gate B, P3 Must, Gate B2, P5, Gate C, P3S Should, P6, Gate D). Items marked (Should) come last and are dropped first. Tick a box only after you have tested the item (`[x]`), or `[~]` if it still needs me on a real device. After every phase run `pnpm typecheck && pnpm lint && pnpm build`, fix failures, append a Session Log entry, and `git commit` on branch `dev` (include `PRD.md`). Create `dev` right after the first commit.
 6. **At every GATE (A, A2, B, B2, C, D):** run the self-review from §0.4 item 5 (call the secured functions signed-out and with the wrong role and paste real output), print the REPORT block from §14, log it in §13, merge `dev` into `main` only if the build is green (§0.5), and **keep going**. **EXCEPTION: at Gate A, after the REPORT, print the Gate A checklist from §0.4 item 1 and STOP until I reply `GATE A PASSED`.**
 7. **Stop only for a TRUE BLOCKER** (§0.4 item 2): print the REPORT with `Status: BLOCKED` and the exact steps I must do. Everything else (SMS sender not approved, logos missing, unanswered questions) uses the PRD defaults and gets logged as an assumption.
-8. **Use current official docs** for Convex, Convex Auth, Arkesel and Next.js, not memory.
+8. **Use current official docs** for Convex, Convex Auth, BulkSMSGH and Next.js, not memory.
 9. **If you run low on context or tokens**, immediately write a Handoff note in §13 (done, half-done, exact next command), commit, and tell me to resend the one-line message above.
 10. **When every box in §12 is `[x]`, `[~]` or `[!]`** and the last `pnpm typecheck && pnpm lint && pnpm build` is clean and production is deployed, print the **FINAL REPORT** from §14, including my OWNER-VERIFY checklist with exact steps and live URLs. That is the only normal stopping point after Gate A.
 
@@ -32,7 +32,7 @@ This is a real production system. The event is **Saturday 7 November 2026, 9:00 
 - `create-next-app` may refuse this folder. If so, scaffold into a temp folder called `tein-ucc-events`, move the files up, and never delete `PRD.md` or `START_HERE.md`.
 - Event name on the site is **Women Empowerment Summit** (as on the flyer).
 - Auth fallback: if invite-code sign-up is not working after 30 minutes, use D2b (admin-created staff accounts with a temporary password shown once) and log it.
-- No secrets in git. No Clerk anywhere. No email. SMS only (Arkesel, dry-run until the key exists).
+- No secrets in git. No Clerk anywhere. No email. SMS only (BulkSMSGH, dry-run until the key exists).
 
 ### Your first message back to me must be
 
