@@ -16,3 +16,4 @@ export function generateTicketCode(): string {
 export function generateInviteCode(): string {
   return generateRawCode(8);
 }
+

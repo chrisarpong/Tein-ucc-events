@@ -89,3 +89,4 @@ export default defineSchema({
     meta: v.optional(v.string()),
   }),
 });
+

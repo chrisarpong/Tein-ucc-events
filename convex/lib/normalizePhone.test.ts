@@ -73,3 +73,4 @@ describe("normalizePhone", () => {
     expect(normalizePhone("0148831639").ok).toBe(false); // 1 is not valid prefix in Ghana
   });
 });
+

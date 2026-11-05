@@ -45,3 +45,4 @@ export const seedEvent = mutation({
     return { eventId, action: "created" };
   },
 });
+
