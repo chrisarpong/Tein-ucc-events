@@ -9,7 +9,7 @@
   --deep-green: #063f27;
   --red: #c92132;
   --line: #d8d6cd;
-  --font-display: "Arial Narrow", "Roboto Condensed", "Poppins", sans-serif;
+  --font-display: var(--font-display-face), Georgia, serif;
 }
 
 @theme inline {
@@ -18,7 +18,7 @@
   --color-ndc-green: var(--green);
   --color-ndc-deep: var(--deep-green);
   --color-ndc-red: var(--red);
-  --font-sans: var(--font-poppins), sans-serif;
+  --font-sans: var(--font-body), Arial, sans-serif;
 }
 
 * { box-sizing: border-box; }
@@ -28,7 +28,7 @@ body {
   padding: 0;
   background: var(--paper);
   color: var(--ink);
-  font-family: var(--font-poppins), Arial, sans-serif;
+  font-family: var(--font-body), Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
 a { color: inherit; }
@@ -66,10 +66,10 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .hero-copy .eyebrow span { color:#e26b72; padding:0 .3rem; }
 .title-stack { margin:clamp(1.4rem,4vw,3.4rem) 0 1.5rem; }
 .edition-label { margin:0 0 .35rem .4rem; color:#dfbfc0; font-size:.8rem; letter-spacing:.12em; text-transform:uppercase; }
-.title-stack h1 { display:flex; flex-direction:column; align-items:flex-start; margin:0; font-family:var(--font-display); font-weight:900; line-height:.88; letter-spacing:-.055em; text-transform:uppercase; }
+.title-stack h1 { display:flex; flex-direction:column; align-items:flex-start; margin:0; font-family:var(--font-display); font-weight:700; line-height:.98; letter-spacing:-.045em; }
 .title-stack h1>span:first-child { font-size:clamp(4rem,11.5vw,10rem); }
 .title-accent { position:relative; z-index:0; margin:.16em 0 .18em -.08em; padding:.11em .19em .18em; color:white; background:var(--red); font-size:clamp(1.9rem,6vw,5.4rem); letter-spacing:-.04em; }
-.title-summit { font-family:var(--font-poppins),Arial,sans-serif; font-size:clamp(2.5rem,6.5vw,5.6rem); font-weight:500; letter-spacing:-.06em; text-transform:none; }
+.title-summit { font-family:var(--font-body),Arial,sans-serif; font-size:clamp(2.5rem,6.5vw,5.6rem); font-weight:500; letter-spacing:-.06em; text-transform:none; }
 .title-summit small { display:inline-block; margin-left:.45rem; color:#d1dccd; font-size:.24em; font-weight:700; letter-spacing:.14em; vertical-align:middle; }
 .theme-block { display:grid; grid-template-columns:4px minmax(0,42rem); gap:1rem; max-width:45rem; margin:2rem 0 2.2rem; }
 .theme-rule { width:4px; background:var(--red); }
