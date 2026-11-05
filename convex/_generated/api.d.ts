@@ -9,7 +9,15 @@
  */
 
 import type * as auth from "../auth.js";
+import type * as events from "../events.js";
 import type * as http from "../http.js";
+import type * as lib_auth from "../lib/auth.js";
+import type * as lib_normalizePhone from "../lib/normalizePhone.js";
+import type * as lib_ticketCode from "../lib/ticketCode.js";
+import type * as registrations from "../registrations.js";
+import type * as seed from "../seed.js";
+import type * as staff from "../staff.js";
+import type * as testSuite from "../testSuite.js";
 
 import type {
   ApiFromModules,
@@ -19,7 +27,15 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
+  events: typeof events;
   http: typeof http;
+  "lib/auth": typeof lib_auth;
+  "lib/normalizePhone": typeof lib_normalizePhone;
+  "lib/ticketCode": typeof lib_ticketCode;
+  registrations: typeof registrations;
+  seed: typeof seed;
+  staff: typeof staff;
+  testSuite: typeof testSuite;
 }>;
 
 /**
