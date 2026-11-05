@@ -10,7 +10,7 @@ export const seedEvent = internalMutation({
   handler: async (ctx, args) => {
     // Saturday, 7 November 2026, 9:00 AM UTC
     const startsAt = new Date("2026-11-07T09:00:00Z").getTime();
-    const capacity = args.capacity ?? 500;
+    const capacity = args.capacity;
 
     const existing = await ctx.db
       .query("events")
@@ -37,7 +37,7 @@ export const seedEvent = internalMutation({
         "Empowered Women, Transformed Futures: Building Women for Leadership, Economic Independence and National Development",
       venue: "SGS Auditorium, University of Cape Coast",
       startsAt,
-      capacity,
+      ...(capacity === undefined ? {} : { capacity }),
       registrationOpen: true,
       confirmationSmsEnabled: false,
     });

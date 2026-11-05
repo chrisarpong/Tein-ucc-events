@@ -1,4 +1,4 @@
-# PRD v2.3: TEIN-UCC Events (Registration, Check-in & SMS CRM)
+# PRD v2.5: TEIN-UCC Events (Registration, Check-in & SMS CRM)
 
 > **READ §0 FIRST.** This file is the single source of truth AND the progress tracker. Any AI (builder agent, reviewer chat, a new session after tokens ran out) should be able to understand the whole project from this file alone.
 
@@ -7,6 +7,10 @@
 > **v2.2 change (5 Nov 2026):** AUTONOMOUS MODE. The Builder now runs from the first unchecked box to the very end WITHOUT waiting at gates (v2.3: except the mandatory Gate A pause). Gates are self-reviewed checkpoints. The Builder stops only for a TRUE BLOCKER. See new §0.4, the `[~]` status in §12, the HUMAN QUEUE in §13 and the FINAL REPORT in §14. Local folder is `Women's Empowerment Summit` (spaces and an apostrophe, so quote every path); the npm/GitHub/Convex project name stays `tein-ucc-events`. This file and `START_HERE.md` sit in the ROOT of the project folder (not in `docs/`).
 
 > **v2.3 change (5 Nov 2026):** (1) **Build order fixed:** check-in (P4) now comes BEFORE the CRM (P3), and the CRM is split into Must (P3 Must) and Should (P3S). Dashboard charts, audit page, QR poster and Lighthouse pass are **Should**. (2) **Branch rule (§0.5):** the Builder works on branch `dev` and merges to `main` only at a gate after a green build, because every push to `main` redeploys PRODUCTION. (3) **Gate A is now a MANDATORY PAUSE** (the only normal pause): the Owner tests on a real phone before sharing the link. After Gate A the run is fully autonomous. (4) **Feature freeze (§0.6):** Friday 6 Nov 6:00 PM, bug fixes only. (5) **Auth fallback (D2b, P3A-FB):** if invite-code sign-up cannot be made to work, admins create staff accounts directly with a temporary password shown once. (6) Event-day backups added (§15), owner prep checklist added (§0.7).
+
+> **v2.4 change (5 Nov 2026):** Public UI refresh uses an event-specific typographic layout without invented logos or unsupported programme claims. SMS consent is optional and unchecked by default; registration remains available without SMS consent. The public ticket no longer exposes attendee category or programme details. Ticket recovery remains a manual event-team flow until SMS is implemented; pages must not claim that an SMS was sent unless delivery is active. Public registrations now use a global and per-phone server-side rate limit with expired-key cleanup.
+
+> **v2.5 change (5 Nov 2026):** Registration has no fixed attendee capacity or waitlist by default. Abuse throttles remain enabled (60 registrations/minute globally; 3 recovery SMS requests/hour per phone). SMS provider is BulkSMSGH using the approved sender ID `TEIN UCC`; the API key is a Convex secret. `SMS_DRY_RUN=false` is required to send live messages.
 
 ---
 
@@ -18,7 +22,7 @@ A real web app, going live for a real event in 2 days, that lets the TEIN-UCC (U
 ### 0.2 The three actors and their rules
 | Actor | Who | Job |
 |---|---|---|
-| **Owner (human)** | The TEIN-UCC organiser who is building this | Creates accounts (GitHub, Convex, Arkesel, Vercel), pastes prompts and reports between agent and reviewer, makes decisions |
+| **Owner (human)** | The TEIN-UCC organiser who is building this | Creates accounts (GitHub, Convex, BulkSMSGH, Vercel), pastes prompts and reports between agent and reviewer, makes decisions |
 | **Builder agent** | Antigravity IDE agent on a MacBook Pro M4 Pro | Writes all code, runs it, deploys it, ticks checkboxes in this file |
 | **Reviewer** | Claude / ChatGPT chat (OPTIONAL in v2.2) | In autonomous mode the Builder self-reviews at every gate (§0.4). The Owner may still paste the FINAL REPORT or any gate REPORT to a Reviewer for a second opinion |
 
@@ -29,7 +33,7 @@ A real web app, going live for a real event in 2 days, that lets the TEIN-UCC (U
 4. After each phase: run `pnpm typecheck && pnpm lint && pnpm build`, fix failures, append an entry to §13 Session Log, `git commit` (include this file).
 5. At every **GATE**: run the self-review (§0.4), print the REPORT block from §14, append it to §13, merge `dev` into `main` only if the build is green (§0.5), and CONTINUE immediately. Do NOT wait for the Owner. **The ONE exception is Gate A, which is a mandatory pause (§0.4 item 1).** Otherwise stop only for a TRUE BLOCKER (§0.4).
 6. If you are running low on context/tokens, immediately write a **Handoff note** in §13 (what's done, what's half-done, the exact next command) and commit.
-7. Check current official docs (Convex, Convex Auth, Arkesel, Next.js) before using an API; do not rely on memory for exact signatures.
+7. Check current official docs (Convex, Convex Auth, BulkSMSGH, Next.js) before using an API; do not rely on memory for exact signatures.
 8. Never invent logos, party emblems, or university crests. Use files in `/public/brand/` or a text wordmark.
 9. No secrets in git. No fake data in production.
 10. Prefer simple, boring solutions. No scope creep: Must-haves first.
@@ -60,7 +64,7 @@ Look at §12 (checkboxes) and the last entry in §13 (Session Log). The first un
    - continuing would break a §5 decision or a §10 security rule;
    - an action would destroy or overwrite PRODUCTION data.
    When truly blocked: print the REPORT with `Status: BLOCKED` and the exact copy-paste steps, then wait.
-3. **NOT blockers (use the default, log it in §13 as an assumption, keep going):** SMS sender ID not approved (use dry-run / default sender), logos missing (text wordmark), open questions in §17 (capacity 500, open to all genders, invite-code sign-up), Owner-verify items.
+3. **NOT blockers (use the default, log it in §13 as an assumption, keep going):** SMS key not yet configured (dry-run), logos missing (text wordmark), open questions in §17 (open to all genders, invite-code sign-up), Owner-verify items.
 4. **Human tasks (H):** at the very start print ONE numbered list titled `DO THESE NOW (while I keep building)` with exact steps and copy-paste commands for every H task still open. Then immediately start building whatever does not depend on them. Re-read the HUMAN QUEUE (§13) at the end of every phase and use anything the Owner has supplied since.
 5. **Self-review at every gate (you act as the Reviewer):** re-read the acceptance items for that phase; run `pnpm typecheck && pnpm lint && pnpm build` (and `pnpm test` if tests exist); for any security item actually CALL the function signed-out and with the wrong role and paste the real output (never just claim it); list shortcuts you took; fix problems BEFORE moving on.
 6. **Owner-verify items** (real phone, real SMS, Owner's own sign-up): do every part you can yourself, mark the box `[~]`, add the exact steps to the HUMAN QUEUE, and keep going (except Gate A, item 1). Never mark `[x]` for something that needs a real device.
@@ -82,7 +86,7 @@ Vercel builds PRODUCTION from `main`, and the production build runs `npx convex 
 **Friday 6 Nov 2026, 6:00 PM Ghana time: FEATURE FREEZE.** Before the freeze, build in the §12 order. After the freeze, ONLY bug fixes, security fixes, docs and the RUNBOOK are allowed. No new features, no refactors, no dependency upgrades. If a Must box is still open at the freeze, finish only what makes it work; mark any unfinished Should box `[!]`. Check the clock with `date` at the start of every phase. After the freeze, every merge to `main` needs a one-line reason in §13.
 
 ### 0.7 OWNER PREP CHECKLIST (the Builder prints this inside the first `DO THESE NOW` list)
-Before or while the Builder starts, the Owner confirms: (1) Antigravity terminal command setting is on auto-run for this folder (otherwise the run is not autonomous); (2) the strongest available model is selected (not a "Flash" model); (3) `node -v` is 20 or higher; (4) `gh auth login` works; (5) `npx convex` login and Vercel login work (the first two Builder tasks, GitHub and Convex, are the likeliest to stall the run); (6) Arkesel sender ID `TEINUCC` request started today (approval can take days; expect the default sender on Saturday); (7) ready to hand over: logos, at least TWO admin emails, the usher emails, and the capacity number.
+Before or while the Builder starts, the Owner confirms: (1) Antigravity terminal command setting is on auto-run for this folder (otherwise the run is not autonomous); (2) the strongest available model is selected (not a "Flash" model); (3) `node -v` is 20 or higher; (4) `gh auth login` works; (5) `npx convex` login and Vercel login work; (6) BulkSMSGH API key and approved sender ID `TEIN UCC` are available when live SMS is needed; (7) ready to hand over: logos, at least TWO admin emails, and the usher emails.
 
 ---
 
@@ -118,7 +122,7 @@ Staff (admin and check-in) get accounts ONLY through an invite made by an admin 
 
 ## 4. Scope
 
-**Must (MVP):** landing page in NDC theme; registration form; QR ticket page; capacity + waitlist; open/close registration; staff sign-up (invite code) and sign-in with roles; dashboard; attendee table (search/filter/edit/cancel/add); CSV export; check-in scanner + phone search + walk-in; SMS campaigns with templates, audience filters and per-recipient log; thank-you flow; audit log.
+**Must (MVP):** landing page in NDC theme; registration form; QR ticket page; unlimited registration by default (optional owner-configured capacity later); open/close registration; staff sign-up (invite code) and sign-in with roles; dashboard; attendee table (search/filter/edit/cancel/add); CSV export; check-in scanner + phone search + walk-in; SMS campaigns with templates, audience filters and per-recipient log; thank-you flow; audit log.
 
 **Should (v2.3: dropped first when time is short):** dashboard charts (R3 charts; simple count cards stay Must), audit log viewing page (audit entries stay Must), registration-link QR poster, Lighthouse pass, confirmation SMS with ticket link on registration (toggle); "Find my ticket" by SMS. (The check-in live counter is a Must, see R6.)
 
@@ -128,28 +132,28 @@ Staff (admin and check-in) get accounts ONLY through an invite made by an admin 
 
 | # | Decision | Why |
 |---|---|---|
-| D1 | **Convex** for database, server functions, realtime | TypeScript end to end; mutations are transactional (capacity checks are race-safe without hand-written SQL); reactive queries give live dashboard and check-in counts for free; no RLS to configure |
+| D1 | **Convex** for database, server functions, realtime | TypeScript end to end; mutations are transactional; unlimited registration by default, with an optional future capacity field; reactive queries give live dashboard and check-in counts for free; no RLS to configure |
 | D2 | **Convex Auth** (`@convex-dev/auth`, Password provider) for staff sign-up and sign-in, built into our own app. **No Clerk.** Roles live in the Convex `staff` table | Owner decision: Clerk does not fit the Owner's needs. Convex Auth lives inside our own Convex project: no third-party account, no extra dashboard |
 | D2b | **Auth fallback.** If invite-code sign-up (the `createOrUpdateUser` hook taking the extra invite field and rolling back cleanly) cannot be made to work within 30 minutes, switch to: NO public sign-up; admins create staff accounts directly in Settings > Team (email + name + role), and the app shows a temporary password once. The first admin is created from the command line with a temporary password shown once. Staff change it at first sign-in if time allows. All other auth rules (generic errors, `requireStaff` on every call, disable, 7-day sessions) stay. Log it in §13 as a deviation | The hook is untested against the current library; this keeps staff login working for Saturday |
 | D3 | **SMS only. No email, no Resend.** Remove the email field from the form | Students respond to SMS; one channel is less to build and less data collected. Email is used ONLY as the staff login identifier in Convex Auth |
-| D4 | **Arkesel** SMS behind a `SmsProvider` interface (mNotify can be added later) | Local provider; verify API against current docs |
+| D4 | **BulkSMSGH** SMS provider; use the approved sender ID `TEIN UCC` | API key stays in Convex env; provider sends only from server actions |
 | D5 | **Next.js 15 App Router + TypeScript (strict) + Tailwind + shadcn/ui**, pnpm, Node 20+ | Standard, fast on Vercel |
 | D6 | **Vercel** hosting with Convex production deploy via `npx convex deploy` in the build command. `main` = production, branch `dev` = previews against the DEV Convex deployment (see §0.5) | Owner already has Vercel and GitHub; stops half-finished work from going live |
 | D7 | Admin tables load the event's registrations in one reactive query and **search/filter/sort/paginate on the client** (cap 2,000 rows) | Simplest and instant for a few hundred to a couple thousand people. If an event is ever larger, switch to paginated queries |
 | D8 | Ticket QR contains **only the ticket code** | No personal data in the QR |
 | D9 | Duplicate phone never reveals the existing ticket on screen; it triggers an SMS with the ticket link (if SMS enabled) | Stops people pulling tickets for numbers they don't own |
-| D10 | No "reply STOP" in SMS (Arkesel sender IDs can't receive replies). Opt-out = admin toggles `optedOut`, or the person calls the number in the footer | Don't promise what the system can't do |
+| D10 | No "reply STOP" in SMS (the approved alphanumeric sender ID is not two-way). Opt-out = admin toggles `optedOut`, or the person calls the number in the footer | Don't promise what the system can't do |
 | D11 | **Staff sign-up needs an invite code.** Admin creates an invite (email + role); the app shows an 8-character code once; the person opens `/sign-up` and enters name, the SAME email, a password and the code. Codes are single-use, expire in 7 days, and only a hash is stored | Sign-up is public on the internet, but the CRM holds personal data. With no email verification (D3), an invite code tied to an exact email is what stops a stranger (or someone guessing an invited email) from becoming staff |
 | D12 | **No email means no "forgot password" email.** An admin resets a staff password in Settings and the app shows a temporary password once | Keeps D3 (SMS only). Small team, so an admin can always be reached |
 | D13 | Sessions last 7 days max, 2 days inactive. The staff row is checked on EVERY call, so disabling someone works immediately | Ushers can sign in Friday and still be signed in Saturday; a lost phone can be cut off in seconds |
 
 ## 6. Functional requirements and acceptance criteria
 
-**R1 Register (public).** Fields: full name\*, phone\*, gender (optional), attendee type\* (student/staff/alumni/guest), student index number (students only), level, programme/department, hall/residence, how did you hear about it, accessibility/special needs, consent to receive event SMS\*.
+**R1 Register (public).** Fields: full name\*, phone\*, gender (optional), attendee type\* (student/staff/alumni/guest), student index number (students only), level, programme/department, hall/residence, how did you hear about it, accessibility/special needs, optional unchecked consent to receive event SMS. Registration must remain available when SMS consent is declined; campaigns only include people who opted in.
 - Phone normalised to E.164 (+233…). Accept `024…`, `+23324…`, `23324…`, `24…` as the same number. Reject invalid numbers clearly.
 - Success: ticket page `/ticket/[code]` with name, code (e.g. `WES-7K3M9Q`), QR, venue/date/time, add-to-calendar (.ics), WhatsApp share, "screenshot your ticket" hint.
 - Duplicate phone: friendly "already registered" message (see D9).
-- Capacity reached → status `waitlisted` with a clear message; admin can promote.
+- No fixed capacity is set for this event. If a future owner-configured cap is added, capacity reached → status `waitlisted` with a clear message; admin can promote.
 - Registration closed → friendly closed page.
 - Honeypot field + global and per-phone rate limiting. Keeps entered values on error.
 - Mobile-first, tap targets ≥ 44px, keyboard and screen-reader friendly.
@@ -200,7 +204,7 @@ export default defineSchema({
     theme: v.optional(v.string()),
     venue: v.string(),
     startsAt: v.number(),               // ms since epoch (UTC)
-    capacity: v.number(),
+    capacity: v.optional(v.number()),       // undefined = unlimited registration
     registrationOpen: v.boolean(),
     confirmationSmsEnabled: v.boolean(),
   }).index("by_slug", ["slug"]),
@@ -269,6 +273,10 @@ export default defineSchema({
     providerResponse: v.optional(v.string()),
   }).index("by_campaign", ["campaignId"]).index("by_status", ["status"]),
 
+  rateLimits: defineTable({
+    key: v.string(), count: v.number(), expiresAt: v.number(),
+  }).index("by_key", ["key"]).index("by_expiresAt", ["expiresAt"]),
+
   auditLog: defineTable({
     actor: v.string(),
     action: v.string(),
@@ -289,12 +297,14 @@ export default defineSchema({
 | `checkin` | `byCode`, `byId`, `walkIn` (admin or checkin). Idempotent: only set `checkedInAt` if unset; return `alreadyCheckedInAt` otherwise |
 | `stats` | `dashboard(eventId)` (admin) |
 | `campaigns` | `previewAudience` (count + sample), `create` (admin mutation: builds message rows from audience and schedules sending), `send` (internal action: batches, calls provider), `list`, `get` |
-| `sms` | `SmsProvider` interface; `arkesel.ts` implementation; `normalizePhone.ts` (own small Ghana-aware normaliser with unit tests, so it runs safely in the Convex runtime) |
+| `sms` | BulkSMSGH sender implementation in `convex/sms.ts`; Ghana-aware phone normalization in `convex/normalizePhone.ts` |
 | `staff` | `me` (who am I + role, used by route guards), `list`, `createInvite` (admin), `listInvites` (admin), `revokeInvite` (admin), `setActive` (admin; also deletes that person's sessions), `resetPassword` (admin action; returns temp password once), `recordLogin` (called once after sign-in; writes `lastLoginAt` + audit), `createFirstInvite` (internal; run once from CLI, prints the code) |
 | `audit` | `log` (internal), `list` (admin) |
 | `seed` | `seedEvent` (internal; run with `npx convex run seed:seedEvent` and `--prod` for production). Fake attendees only via dev script guarded by env flag |
 
 **Capacity safety:** `register` runs as one Convex mutation (serialisable transaction). Count `registered` rows with the `by_event_status` index, compare to `capacity`, insert with status `registered` or `waitlisted`. Test with parallel calls.
+
+**Registration cap:** the seeded event has no `capacity` value and accepts registrations without a fixed attendee ceiling. The optional field remains for a future owner-configured cap; it is unset for this event. Abuse throttles are separate and stay enabled.
 
 **Ticket code:** `WES-` + 6 chars from `23456789ABCDEFGHJKMNPQRSTUVWXYZ` (no 0/O/1/I/L). Retry on collision via `by_ticket`.
 
@@ -342,11 +352,11 @@ The `next` value must start with a single `/` (block `//` and full URLs) so nobo
 ## 9. SMS spec
 
 - `SmsProvider.send({ to, message }): Promise<{ ok: boolean; providerResponse: string; error?: string }>`.
-- **Arkesel:** check current docs. Expected: `POST https://sms.arkesel.com/api/v2/sms/send`, header `api-key`, JSON `{ sender, message, recipients: [...] }`; recipients usually in `233XXXXXXXXX` form (convert from E.164 as the docs require). Sender ID max 11 characters (e.g. `TEINUCC`); needs approval, use the provider's default sender until approved.
-- Convex env vars (set with `npx convex env set`): `ARKESEL_API_KEY`, `SMS_SENDER_ID`.
+- **BulkSMSGH:** POST `https://clientlogin.bulksmsgh.com/smsapi` with form fields `key`, `to`, `msg`, and `sender_id`. The key is sent in the request body, never in a URL or browser bundle. The provider returns `1000` on acceptance; map documented error codes without logging the key or recipient.
+- Convex env vars (set with `npx convex env set --prod`): `BULKSMSGH_API_KEY` (secret), `SMS_SENDER_ID=TEIN UCC`, `SMS_DRY_RUN=false`, and `SITE_URL=https://teinucc.vercel.app`.
 - Sending: Convex **actions** only (they can call external APIs). If the template contains `{name}`, send one request per recipient (concurrency about 5); otherwise bulk batches of up to 100 recipients. After each batch, update message rows and campaign counters, then schedule the next batch with `ctx.scheduler.runAfter`. Never loop everything in one action.
 - Plain GSM text only (no emojis; they shrink a segment from 160 to 70 characters). Show segment counter in compose screen.
-- Test mode: `ConsoleProvider` (logs instead of sending) when `SMS_SENDER_ID` or key is missing or `SMS_DRY_RUN=true`.
+- Test mode: do not send when the API key is missing or `SMS_DRY_RUN` is not `false`; record a failed/dry-run result without exposing secrets.
 - Every SMS creates a `messages` row. Mark `sent` when the provider accepts it (delivery reports are a stretch).
 - **Templates (keep ≤ 160 chars after substitution where possible):**
   - Confirmation: `Hi {name}, you're registered for {event}, Sat 7 Nov, 9AM, SGS Auditorium. Your ticket: {ticketUrl}`
@@ -382,10 +392,10 @@ Time budget: about 5 hours. **Order of phases: P0, P1, P2, GATE A (mandatory pau
 - [x] H1 Create private GitHub repo `tein-ucc-events`, connect local folder
 - [x] H2 Convex account (Builder runs `npx convex dev`, Owner logs in in the browser)
 - [x] H3 (Clerk is gone, no account needed.) Nothing to create. Builder runs the Convex Auth setup command and sets the auth keys on the dev Convex deployment; Owner only approves the browser login if asked
-- [ ] H4 Arkesel account, top up a small balance, request sender ID `TEINUCC`, copy API key (can finish later; app runs in dry-run until then)
-- [ ] H5 Vercel: import GitHub repo, add env vars (`NEXT_PUBLIC_CONVEX_URL`, `NEXT_PUBLIC_SITE_URL`), add `CONVEX_DEPLOY_KEY` (production), set build command `npx convex deploy --cmd 'pnpm build'`. Builder also sets the auth keys and `SITE_URL` on the PRODUCTION Convex deployment (`--prod`). Scope `CONVEX_DEPLOY_KEY` (production) to the Production environment only; Production Branch = `main`. For `dev` preview builds Builder follows the current Convex docs for Vercel preview deployments (a separate preview deploy key / backend) so previews never touch production data; if that cannot be set up quickly, use `pnpm build` for previews and point them at the dev deployment URL
+- [ ] H4 BulkSMSGH API key and balance | Add the API key to Convex Production env as `BULKSMSGH_API_KEY`; set `SMS_SENDER_ID=TEIN UCC` and `SMS_DRY_RUN=false` only after confirming the key and sender approval (can finish later)
+- [ ] H5 Vercel: import GitHub repo, add env vars (`NEXT_PUBLIC_CONVEX_URL`, `NEXT_PUBLIC_SITE_URL`), add `CONVEX_DEPLOY_KEY` (production), set build command `npx convex deploy --cmd 'pnpm build'`. Builder also sets the auth keys and `SITE_URL` on the PRODUCTION Convex deployment (`--prod`). Scope `CONVEX_DEPLOY_KEY` (production) to the Production environment only; Production Branch = `main`. For `dev` preview builds Builder follows the current Convex docs for Vercel preview deployments (a separate preview deploy key / backend) so previews never touch production data; if that cannot be set up quickly, use `pnpm build` for previews and point them at the dev deployment URL. Production site URL: `https://teinucc.vercel.app`
 - [ ] H6 Drop official logos into `public/brand/` (`ucc-logo.png`, `tein-ucc-logo.png`)
-- [ ] H7 Confirm capacity number and whether non-women may register (default: open to all)
+- [ ] H7 Confirm attendee eligibility (default: open to all genders); this event has no attendee capacity cap
 - [ ] H8 Give Builder the first admin email. Builder runs `staff:createFirstInvite`, prints the invite code, and Owner signs up at `/sign-up` with that email + code to become the first admin
 
 ### P0. Setup (about 30 min)
@@ -447,12 +457,12 @@ Time budget: about 5 hours. **Order of phases: P0, P1, P2, GATE A (mandatory pau
 - [ ] P3.7 **(Should)** Audit log page (audit ENTRIES are still written everywhere, as a Must; only the viewing page is Should)
 
 ### P5. SMS (about 45 min) — Must, built after the Must CRM
-- [ ] P5.1 `SmsProvider` interface, Arkesel implementation (verified against current docs), dry-run provider
+- [ ] P5.1 `SmsProvider` interface, BulkSMSGH implementation (verified against current docs), dry-run provider
 - [ ] P5.2 Compose page: audience, template, preview, counter, recipient count, test-to-me, confirm dialog
 - [ ] P5.3 Batched sending via actions + scheduler; per-recipient status; campaign totals
 - [ ] P5.4 Confirmation SMS (setting, default OFF) and "Find my ticket" by SMS (rate limited)
 - [ ] P5.5 Thank-you and missed-you templates; one-click "Thank attendees"
-- [ ] P5.6 Real test SMS delivered to the Owner's phone **(OWNER-VERIFY; if Arkesel key is not set yet, dry-run proof is enough and the box ends as `[~]`)**
+- [ ] P5.6 Real test SMS delivered to the Owner's phone **(OWNER-VERIFY; if BulkSMSGH key is not set yet, dry-run proof is enough and the box ends as `[~]`)**
 - [ ] **GATE C: SMS works end to end.**
 
 ### P6. Hardening, production, handoff (about 40 min)
@@ -495,21 +505,25 @@ Time budget: about 5 hours. **Order of phases: P0, P1, P2, GATE A (mandatory pau
 | 3 | 2026-11-05 | Planning | PRD v2.3: check-in before CRM; Should items split out (P3S); `dev` branch rule (§0.5); Gate A mandatory pause; Friday 6 PM feature freeze (§0.6); auth fallback D2b / P3A-FB; owner prep checklist (§0.7); event-day backups (§15) | Owner does the §0.7 checklist, then sends the one-line START_HERE message | none |
 | 4 | 2026-11-05 | P0 Setup | Next.js 15, Convex, Convex Auth, schema, strict TS, scripts typecheck/lint/build/test, .env.example, git init & branch dev | Proceed to P1 | none |
 | 5 | 2026-11-05 | P1 Backend Core | normalizePhone + 8 tests, requireStaff, seedEvent, registrations (register, getTicket, requestTicketSms), capacity test (20 parallel) | Proceed to P2 | none |
-| 6 | 2026-11-05 | P2 Public Site | Landing page in NDC branding, /register form with Zod validation, /ticket/[code] with QR & .ics, /privacy (Act 843), 404/loading/error, prod Convex deployed & seeded | GATE A checkpoint & mandatory pause | Awaiting Owner Gate A verify |
+| 6 | 2026-11-05 | P2 Public Site | Landing page in NDC branding, /register form with Zod validation, /ticket/[code] with QR & .ics, privacy information page, 404/loading/error, prod Convex deployed & seeded | GATE A checkpoint & mandatory pause | Awaiting Owner Gate A verify |
+| 7 | 2026-11-05 | Public UX corrections | Replaced generic card-heavy landing page; live open/closed status; made SMS opt-in optional; removed public ticket category/programme; corrected ticket status and recovery copy; removed dead sign-in link; refreshed privacy notice; added global/per-phone rate limits with daily cleanup. `npm run typecheck`, `npm run lint`, and `npm run build` pass. | Owner validates Vercel Production variables, redeploys, then completes Gate A phone test | Live deployment and phone test not verified |
+| 8 | 2026-11-05 | Unlimited registration and SMS provider | Removed the seeded 500-person capacity; made capacity optional/unlimited by default. Added BulkSMSGH server-side sender using `TEIN UCC`; ticket recovery is queued only for consented recipients. SMS live delivery awaits the Owner's API key and production Convex env setup. | Deploy additive schema/cron and seed production event with no capacity; set BulkSMSGH key when supplied; run a consented test SMS | Production deploy, seed, key, and live SMS not verified |
+| 9 | 2026-11-05 | Registration and SMS readiness | BulkSMSGH send action uses the dashboard POST endpoint, URL-encoded body, `TEIN UCC`, protected key, dry-run guard, and provider status handling. Removed default capacity counting when no cap is configured. `npm run lint`, `npm run typecheck`, and `npm run build` pass. | Deploy code/schema/cron, clear existing production event capacity with seed, then complete Gate A; add API key directly in Convex Production env and verify one opt-in test SMS | No live deployment or provider-key test yet |
 
 **HUMAN QUEUE (Builder keeps this list current; Owner works through it. Format: `[ ] what | exact steps | blocks which box`)**
 1. [ ] H1 Connect GitHub repo | Run `gh auth login` and `gh repo create tein-ucc-events --private --source=. --push` | P0.4 / Vercel git sync
-2. [ ] H5 Vercel project import & env vars | Import `tein-ucc-events` repo on vercel.com. Add `NEXT_PUBLIC_CONVEX_URL=https://perfect-orca-884.convex.cloud`, `NEXT_PUBLIC_SITE_URL=https://tein-ucc-events.vercel.app`. Set build command to `npx convex deploy --cmd 'pnpm build'` | Production URL
+2. [ ] H5 Vercel and Convex production settings | Confirm Vercel Config values, production `CONVEX_DEPLOY_KEY`, and build command deploys the additive Convex schema/cron. Set Convex `SITE_URL=https://teinucc.vercel.app`; deploy code, then run `npx convex run seed:seedEvent --prod` with no args to remove the old 500 cap | Production URL / Gate A
 3. [ ] Gate A Phone Verification (OWNER-VERIFY) | Follow the Gate A checklist printed below on a real phone | Unblocks Phase P3A
-4. [ ] H4 Arkesel SMS key | Register at arkesel.com, request sender ID `TEINUCC`, copy API key | P5 (dry-run until added)
+4. [ ] H4 BulkSMSGH SMS key | Add `BULKSMSGH_API_KEY` as a Convex Production secret; confirm approved sender ID `TEIN UCC`; set `SMS_DRY_RUN=false` | Ticket-recovery SMS / P5
 5. [ ] H8 Admin Email | Provide primary admin email for bootstrap invite code | P3A.9
+6. [ ] Privacy and event details | Confirm data-controller registration and retention period with the organiser; confirm event opening/end times and approved final privacy copy before public launch | Gate A
 
 **Assumptions the Builder made (capacity, gender policy, sender ID, etc.):**
 - Event slug: `women-empowerment-summit`
-- Default capacity: 500 attendees (waitlist activates automatically once 500 reached)
+- Default capacity: unlimited; optional cap only if the Owner explicitly configures one later
 - Registration open to all genders by default (women-focused theme)
-- SMS Provider: Arkesel with fallback to console dry-run if ARKESEL_API_KEY is not set
-- Default SMS sender ID: `TEINUCC` (or provider default until sender ID approval)
+- SMS Provider: BulkSMSGH; sends only when `BULKSMSGH_API_KEY` exists and `SMS_DRY_RUN=false`
+- SMS sender ID: `TEIN UCC` (approved per Owner-provided dashboard screenshot)
 
 **Handoff note (Builder writes here if tokens are running out):**
 _(empty)_
@@ -569,7 +583,7 @@ What to do on event day (link to docs/RUNBOOK.md):
 | Event is in 2 days | Gate A puts registration live within about 2 hours; everything else follows |
 | SMS sender ID not approved in time | Dry-run mode; default sender; CSV export for manual bulk send; tickets don't depend on SMS |
 | Weak data at venue | Light pages; screenshot tickets; phone-number search fallback |
-| Fake/spam sign-ups | Honeypot, rate limits, unique phone, capacity cap |
+| Fake/spam sign-ups | Honeypot, global/per-phone rate limits, unique phone |
 | Staff account takeover or a stranger signing up | Invite code tied to one email, single-use, 7-day expiry, hashed; password 10+ characters; failed-login limit; `staff` row checked on every call; disable cuts sessions |
 | Convex Auth is newer and its API changes | Builder follows current docs, pins the package version, reports any difference; if invite-code sign-up is not working after 30 minutes, switch to fallback D2b (admin-created accounts with a temporary password); STOP only if the fallback also fails |
 | No email means no self-service password reset | Admin reset in Settings; at least TWO admins exist before event day |
@@ -580,10 +594,8 @@ What to do on event day (link to docs/RUNBOOK.md):
 | Wrong Convex deployment (dev vs prod) | Builder states which deployment each command targets; seed prod explicitly with `--prod` |
 
 ## 17. Open questions for the Owner
-- Real capacity of SGS Auditorium?
 - Open to all genders or women only?
 - Who gets admin vs check-in accounts (emails)?
-- Approved SMS sender ID name?
 - Staff sign-up: is the invite-code method OK, or do you want anyone to sign up and wait for admin approval? (Default: invite code, it is safer.)
 - Who are the 2 admins (emails) and the ushers (emails)?
 - (v2.3) Is the Antigravity terminal setting on auto-run, and is the strongest model selected? (§0.7)
@@ -597,7 +609,7 @@ ATTENDEE (phone, no account)
           [validate -> normalise phone -> honeypot + rate limit -> capacity check (one transaction)]
           -> status = registered | waitlisted   (duplicate phone -> "already registered" + SMS link if enabled)
      -> /ticket/WES-XXXXXX (QR = ticket code only, .ics, WhatsApp share)
-     -> (optional, toggle) confirmation SMS via Arkesel
+     -> (optional, toggle) confirmation SMS via BulkSMSGH
 
 STAFF (invited only)
   Admin creates invite (email + role) -> 8-char code shown once

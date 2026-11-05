@@ -14,6 +14,10 @@ export const metadata: Metadata = {
   title: "Women Empowerment Summit | TEIN-UCC",
   description:
     "Empowered Women, Transformed Futures: Building Women for Leadership, Economic Independence and National Development. TEIN-UCC Women's Commissioner.",
+  icons: {
+    icon: [{ url: "/ndc-emblem.png", type: "image/png" }],
+    apple: [{ url: "/ndc-emblem.png", type: "image/png" }],
+  },
 };
 
 export default function RootLayout({

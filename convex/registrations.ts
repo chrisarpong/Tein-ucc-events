@@ -1,8 +1,74 @@
-import { query, mutation } from "./_generated/server";
+import { query, mutation, internalMutation, type MutationCtx } from "./_generated/server";
+import { internal } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
 import { v } from "convex/values";
 import { normalizePhone } from "./lib/normalizePhone";
 import { generateTicketCode } from "./lib/ticketCode";
 import { requireStaff } from "./lib/auth";
+
+const MINUTE = 60_000;
+const SITE_URL = (process.env.SITE_URL || "https://teinucc.vercel.app").replace(/\/$/, "");
+
+async function queueSms(
+  ctx: MutationCtx,
+  input: {
+    registrationId: Id<"registrations">;
+    kind: "confirmation" | "ticket_resend";
+    toPhone: string;
+    body: string;
+  }
+) {
+  const messageId = await ctx.db.insert("messages", {
+    registrationId: input.registrationId,
+    kind: input.kind,
+    toPhone: input.toPhone,
+    body: input.body,
+    status: "queued",
+  });
+  await ctx.scheduler.runAfter(0, internal.sms.sendQueuedMessage, { messageId });
+}
+
+async function rateLimitKey(phone: string) {
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(phone)
+  );
+  return Array.from(new Uint8Array(digest), (byte) =>
+    byte.toString(16).padStart(2, "0")
+  ).join("");
+}
+
+async function consumeRateLimit(
+  ctx: MutationCtx,
+  key: string,
+  maxAttempts: number,
+  windowMs: number
+) {
+  const now = Date.now();
+  const current = await ctx.db
+    .query("rateLimits")
+    .withIndex("by_key", (q) => q.eq("key", key))
+    .unique();
+
+  if (!current || current.expiresAt <= now) {
+    if (current) {
+      await ctx.db.patch(current._id, { count: 1, expiresAt: now + windowMs });
+    } else {
+      await ctx.db.insert("rateLimits", {
+        key,
+        count: 1,
+        expiresAt: now + windowMs,
+      });
+    }
+    return;
+  }
+
+  if (current.count >= maxAttempts) {
+    throw new Error("Too many registration attempts. Please try again later.");
+  }
+
+  await ctx.db.patch(current._id, { count: current.count + 1 });
+}
 
 export const register = mutation({
   args: {
@@ -45,10 +111,7 @@ export const register = mutation({
       throw new Error("Registration is currently closed for this event");
     }
 
-    // 3. Validate consent
-    if (!args.consentComms) {
-      throw new Error("Consent to receive event SMS communications is required");
-    }
+    await consumeRateLimit(ctx, "registration-global", 60, MINUTE);
 
     // 4. Validate and normalize name
     const trimmedName = args.fullName.trim();
@@ -62,6 +125,12 @@ export const register = mutation({
       throw new Error(phoneNorm.error);
     }
     const e164 = phoneNorm.e164;
+    await consumeRateLimit(
+      ctx,
+      `registration-phone:${await rateLimitKey(e164)}`,
+      3,
+      10 * MINUTE
+    );
 
     // 6. Check for duplicate registration on this event (D9)
     const existing = await ctx.db
@@ -78,7 +147,7 @@ export const register = mutation({
           fullName: trimmedName,
           status: "registered",
           optedOut: false,
-          consentComms: true,
+          consentComms: args.consentComms,
         });
         return {
           status: "registered" as const,
@@ -88,25 +157,36 @@ export const register = mutation({
         };
       }
 
+      if (args.consentComms && !existing.optedOut) {
+        await queueSms(ctx, {
+          registrationId: existing._id,
+          kind: "ticket_resend",
+          toPhone: existing.phone,
+          body: `Hi ${existing.fullName}, your ticket for ${event.name}: ${SITE_URL}/ticket/${existing.ticketCode}`,
+        });
+      }
+
       // Return friendly duplicate message without exposing the ticket on screen (D9)
       return {
         status: "already_registered" as const,
         ticketCode: null,
         isDuplicate: true,
         message:
-          "This phone number is already registered for this event. Your ticket details have been sent via SMS.",
+          "This phone number is already registered for this event. Use the ticket support page if you need help.",
       };
     }
 
-    // 7. Capacity and race-safe count in transaction
-    const registeredAttendees = await ctx.db
-      .query("registrations")
-      .withIndex("by_event_status", (q) =>
-        q.eq("eventId", event._id).eq("status", "registered")
-      )
-      .collect();
-
-    const isCapacityReached = registeredAttendees.length >= event.capacity;
+    // 7. No attendee cap by default. Count only if an owner configured one.
+    let isCapacityReached = false;
+    if (event.capacity !== undefined) {
+      const registeredAttendees = await ctx.db
+        .query("registrations")
+        .withIndex("by_event_status", (q) =>
+          q.eq("eventId", event._id).eq("status", "registered")
+        )
+        .collect();
+      isCapacityReached = registeredAttendees.length >= event.capacity;
+    }
     const status: "registered" | "waitlisted" = isCapacityReached
       ? "waitlisted"
       : "registered";
@@ -142,6 +222,15 @@ export const register = mutation({
       source: "online",
     });
 
+    if (args.consentComms && event.confirmationSmsEnabled) {
+      await queueSms(ctx, {
+        registrationId: regId,
+        kind: "confirmation",
+        toPhone: e164,
+        body: `Hi ${trimmedName}, you are registered for ${event.name}. Your ticket: ${SITE_URL}/ticket/${ticketCode}`,
+      });
+    }
+
     return {
       status,
       ticketCode,
@@ -172,9 +261,6 @@ export const getTicket = query({
     return {
       ticketCode: reg.ticketCode,
       fullName: reg.fullName,
-      attendeeType: reg.attendeeType,
-      level: reg.level,
-      programme: reg.programme,
       status: reg.status,
       checkedInAt: reg.checkedInAt,
       event: {
@@ -193,40 +279,82 @@ export const requestTicketSms = mutation({
     phone: v.string(),
   },
   handler: async (ctx, args) => {
-    // Normalise phone; always return identical message (R2)
     const normalized = normalizePhone(args.phone);
-    if (normalized.ok) {
-      const event = await ctx.db
-        .query("events")
-        .withIndex("by_slug", (q) => q.eq("slug", args.slug))
+    if (!normalized.ok) {
+      return {
+        success: true,
+        message: "If this number is registered and opted into SMS, a ticket link will be sent if delivery is available. If you do not receive one, contact the event team.",
+      };
+    }
+
+    try {
+      await consumeRateLimit(
+        ctx,
+        `ticket-sms:${await rateLimitKey(normalized.e164)}`,
+        3,
+        60 * MINUTE
+      );
+    } catch {
+      // Keep the response identical to avoid revealing registration state.
+      return {
+        success: true,
+        message: "If this number is registered and opted into SMS, a ticket link will be sent if delivery is available. If you do not receive one, contact the event team.",
+      };
+    }
+
+    const event = await ctx.db
+      .query("events")
+      .withIndex("by_slug", (q) => q.eq("slug", args.slug))
+      .unique();
+    if (event) {
+      const registration = await ctx.db
+        .query("registrations")
+        .withIndex("by_event_phone", (q) =>
+          q.eq("eventId", event._id).eq("phone", normalized.e164)
+        )
         .unique();
 
-      if (event) {
-        const reg = await ctx.db
-          .query("registrations")
-          .withIndex("by_event_phone", (q) =>
-            q.eq("eventId", event._id).eq("phone", normalized.e164)
-          )
-          .unique();
-
-        if (reg && reg.status !== "cancelled") {
-          // Record message in queue if SMS enabled
-          await ctx.db.insert("messages", {
-            registrationId: reg._id,
-            kind: "ticket_resend",
-            toPhone: reg.phone,
-            body: `Hi ${reg.fullName}, here is your ticket for ${event.name}: https://tein-ucc-events.vercel.app/ticket/${reg.ticketCode}`,
-            status: "queued",
-          });
-        }
+      if (
+        registration &&
+        registration.status !== "cancelled" &&
+        registration.consentComms &&
+        !registration.optedOut
+      ) {
+        await queueSms(ctx, {
+          registrationId: registration._id,
+          kind: "ticket_resend",
+          toPhone: registration.phone,
+          body: `Hi ${registration.fullName}, your ticket for ${event.name}: ${SITE_URL}/ticket/${registration.ticketCode}`,
+        });
       }
     }
 
     return {
       success: true,
-      message:
-        "If this number is registered, we've sent your ticket link by SMS.",
+      message: "If this number is registered and opted into SMS, a ticket link will be sent if delivery is available. If you do not receive one, contact the event team.",
     };
+  },
+});
+
+export const cleanupRateLimits = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const expired = await ctx.db
+      .query("rateLimits")
+      .withIndex("by_expiresAt", (q) => q.lt("expiresAt", Date.now()))
+      .take(500);
+
+    for (const row of expired) {
+      await ctx.db.delete(row._id);
+    }
+
+    if (expired.length === 500) {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.registrations.cleanupRateLimits,
+        {}
+      );
+    }
   },
 });
 
@@ -395,7 +523,7 @@ export const adminCreate = mutation({
       programme: args.programme,
       hall: args.hall,
       specialNeeds: args.specialNeeds,
-      consentComms: true,
+      consentComms: false,
       optedOut: false,
       status: "registered",
       source: "admin",
