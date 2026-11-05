@@ -17,7 +17,6 @@ import type * as lib_ticketCode from "../lib/ticketCode.js";
 import type * as registrations from "../registrations.js";
 import type * as seed from "../seed.js";
 import type * as staff from "../staff.js";
-import type * as testSuite from "../testSuite.js";
 
 import type {
   ApiFromModules,
@@ -35,7 +34,6 @@ declare const fullApi: ApiFromModules<{
   registrations: typeof registrations;
   seed: typeof seed;
   staff: typeof staff;
-  testSuite: typeof testSuite;
 }>;
 
 /**
