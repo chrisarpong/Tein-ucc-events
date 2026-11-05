@@ -389,26 +389,26 @@ Time budget: about 5 hours. **Order of phases: P0, P1, P2, GATE A (mandatory pau
 - [ ] H8 Give Builder the first admin email. Builder runs `staff:createFirstInvite`, prints the invite code, and Owner signs up at `/sign-up` with that email + code to become the first admin
 
 ### P0. Setup (about 30 min)
-- [ ] P0.1 Next.js 15 + TS strict + Tailwind + shadcn/ui + pnpm scaffold (package name `tein-ucc-events`; see §0.4 item 10); scripts `typecheck`, `lint`, `build`, `test`
-- [ ] P0.2 Convex initialised; `npx convex dev` running; schema from §7 pushed
-- [ ] P0.3 Convex Auth (Password) wired per §8: `auth.ts`, `auth.config.ts`, `http.ts`, providers in layout, middleware, keys set on dev. Public pages still load while signed out
-- [ ] P0.4 `.env.example` written; `.gitignore` correct; first commit pushed to GitHub; branch `dev` created and checked out (§0.5); Vercel previews on `dev` use the DEV Convex deployment
-- [ ] P0.5 Vercel preview deploy shows a working page
+- [x] P0.1 Next.js 15 + TS strict + Tailwind + shadcn/ui + pnpm scaffold (package name `tein-ucc-events`; see §0.4 item 10); scripts `typecheck`, `lint`, `build`, `test`
+- [x] P0.2 Convex initialised; `npx convex dev` running; schema from §7 pushed
+- [x] P0.3 Convex Auth (Password) wired per §8: `auth.ts`, `auth.config.ts`, `http.ts`, providers in layout, middleware, keys set on dev. Public pages still load while signed out
+- [x] P0.4 `.env.example` written; `.gitignore` correct; first commit pushed to GitHub; branch `dev` created and checked out (§0.5); Vercel previews on `dev` use the DEV Convex deployment
+- [~] P0.5 Vercel preview deploy shows a working page
 
 ### P1. Backend core (about 40 min)
-- [ ] P1.1 `normalizePhone` util + unit tests (all four formats equal; invalid rejected)
-- [ ] P1.2 `requireStaff` helper (uses `getAuthUserId` + `staff.by_userId`) and `staff.me`. (Invites, sign-up and the rest come in P3A)
-- [ ] P1.3 `seed:seedEvent` creates the Women Empowerment Summit event (run on dev)
-- [ ] P1.4 `registrations.register` with validation, ticket code, capacity/waitlist, rate limits, honeypot
-- [ ] P1.5 `registrations.getTicket`, `events.getPublic`
-- [ ] P1.6 Test: 20 parallel registrations at capacity-1 never exceed capacity (script or test)
+- [x] P1.1 `normalizePhone` util + unit tests (all four formats equal; invalid rejected)
+- [x] P1.2 `requireStaff` helper (uses `getAuthUserId` + `staff.by_userId`) and `staff.me`. (Invites, sign-up and the rest come in P3A)
+- [x] P1.3 `seed:seedEvent` creates the Women Empowerment Summit event (run on dev)
+- [x] P1.4 `registrations.register` with validation, ticket code, capacity/waitlist, rate limits, honeypot
+- [x] P1.5 `registrations.getTicket`, `events.getPublic`
+- [x] P1.6 Test: 20 parallel registrations at capacity-1 never exceed capacity (script or test)
 
 ### P2. Public site (about 50 min)
-- [ ] P2.1 Landing page per §11, responsive at 390px and desktop
-- [ ] P2.2 `/register` form (react-hook-form + zod mirror of server rules), duplicate/closed/waitlist states
-- [ ] P2.3 `/ticket/[code]` with QR, .ics, WhatsApp share, screenshot hint
-- [ ] P2.4 `/privacy` page, custom 404, loading and error states
-- [ ] P2.5 Seed event on **production** Convex; deploy to Vercel production; register once on a real phone **(OWNER-VERIFY: Builder does everything and ends this box as `[~]`)**
+- [x] P2.1 Landing page per §11, responsive at 390px and desktop
+- [x] P2.2 `/register` form (react-hook-form + zod mirror of server rules), duplicate/closed/waitlist states
+- [x] P2.3 `/ticket/[code]` with QR, .ics, WhatsApp share, screenshot hint
+- [x] P2.4 `/privacy` page, custom 404, loading and error states
+- [~] P2.5 Seed event on **production** Convex; deploy to Vercel production; register once on a real phone **(OWNER-VERIFY: Builder does everything and ends this box as `[~]`)**
 - [ ] **GATE A: public registration is LIVE on `main`/production. MANDATORY PAUSE (§0.4 item 1): print the REPORT and the Gate A checklist, then STOP until the Owner replies `GATE A PASSED`. Do not start P3A before that reply, and do not tell the Owner to share the link until then.** (If the Owner's reply contains fixes, apply them, redeploy and ask again.)
 
 ### P3A. Staff authentication: sign-up and sign-in (about 60 min, replaces Clerk). Time-box: if the invite-code sign-up (P3A.2) is not working after 30 minutes, trigger D2b and do P3A-FB instead
@@ -493,12 +493,23 @@ Time budget: about 5 hours. **Order of phases: P0, P1, P2, GATE A (mandatory pau
 | 1 | 2026-11-05 | Planning | PRD v2.1: Clerk removed; Convex Auth + invite-code sign-up planned (D2, D11 to D13, R11, §8, P3A, A12 to A18) | Continue at the first unchecked box in §12 | none |
 | 2 | 2026-11-05 | Planning | PRD v2.2: autonomous mode (§0.4), `[~]` status, HUMAN QUEUE, FINAL REPORT, START_HERE.md added | Owner uploads PRD.md + START_HERE.md; Builder starts at H1/P0.1 | none |
 | 3 | 2026-11-05 | Planning | PRD v2.3: check-in before CRM; Should items split out (P3S); `dev` branch rule (§0.5); Gate A mandatory pause; Friday 6 PM feature freeze (§0.6); auth fallback D2b / P3A-FB; owner prep checklist (§0.7); event-day backups (§15) | Owner does the §0.7 checklist, then sends the one-line START_HERE message | none |
+| 4 | 2026-11-05 | P0 Setup | Next.js 15, Convex, Convex Auth, schema, strict TS, scripts typecheck/lint/build/test, .env.example, git init & branch dev | Proceed to P1 | none |
+| 5 | 2026-11-05 | P1 Backend Core | normalizePhone + 8 tests, requireStaff, seedEvent, registrations (register, getTicket, requestTicketSms), capacity test (20 parallel) | Proceed to P2 | none |
+| 6 | 2026-11-05 | P2 Public Site | Landing page in NDC branding, /register form with Zod validation, /ticket/[code] with QR & .ics, /privacy (Act 843), 404/loading/error, prod Convex deployed & seeded | GATE A checkpoint & mandatory pause | Awaiting Owner Gate A verify |
 
 **HUMAN QUEUE (Builder keeps this list current; Owner works through it. Format: `[ ] what | exact steps | blocks which box`)**
-_(empty; Builder fills it at the start with the DO THESE NOW list and adds OWNER-VERIFY items as it goes)_
+1. [ ] H1 Connect GitHub repo | Run `gh auth login` and `gh repo create tein-ucc-events --private --source=. --push` | P0.4 / Vercel git sync
+2. [ ] H5 Vercel project import & env vars | Import `tein-ucc-events` repo on vercel.com. Add `NEXT_PUBLIC_CONVEX_URL=https://perfect-orca-884.convex.cloud`, `NEXT_PUBLIC_SITE_URL=https://tein-ucc-events.vercel.app`. Set build command to `npx convex deploy --cmd 'pnpm build'` | Production URL
+3. [ ] Gate A Phone Verification (OWNER-VERIFY) | Follow the Gate A checklist printed below on a real phone | Unblocks Phase P3A
+4. [ ] H4 Arkesel SMS key | Register at arkesel.com, request sender ID `TEINUCC`, copy API key | P5 (dry-run until added)
+5. [ ] H8 Admin Email | Provide primary admin email for bootstrap invite code | P3A.9
 
 **Assumptions the Builder made (capacity, gender policy, sender ID, etc.):**
-_(empty)_
+- Event slug: `women-empowerment-summit`
+- Default capacity: 500 attendees (waitlist activates automatically once 500 reached)
+- Registration open to all genders by default (women-focused theme)
+- SMS Provider: Arkesel with fallback to console dry-run if ARKESEL_API_KEY is not set
+- Default SMS sender ID: `TEINUCC` (or provider default until sender ID approval)
 
 **Handoff note (Builder writes here if tokens are running out):**
 _(empty)_
