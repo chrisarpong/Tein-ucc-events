@@ -16,7 +16,14 @@ export default function HomePage() {
     <main className="summit-home min-h-screen pb-24 lg:pb-0">
       <header className="site-header">
         <Link href="/" className="brand-lockup" aria-label="TEIN-UCC Women Empowerment Summit home">
-          <span className="brand-mark" aria-hidden="true">TEIN</span>
+          <Image
+            src="/ndc-emblem.png"
+            alt=""
+            aria-hidden="true"
+            width={64}
+            height={64}
+            className="brand-emblem"
+          />
           <span className="brand-copy"><strong>TEIN-UCC</strong><small>Office of the Women&apos;s Commissioner</small></span>
         </Link>
         <nav className="header-actions" aria-label="Main navigation">
