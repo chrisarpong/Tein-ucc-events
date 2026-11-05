@@ -379,9 +379,9 @@ The `next` value must start with a single `/` (block `//` and full URLs) so nobo
 Time budget: about 5 hours. **Order of phases: P0, P1, P2, GATE A (mandatory pause), P3A, GATE A2, P4, GATE B, P3 (Must), GATE B2, P5, GATE C, P3S (Should), P6, GATE D.** Do not reorder. **GATE** = checkpoint: self-review, print REPORT (§14), log it in §13, merge `dev` to `main` if green (§0.5), then CONTINUE without waiting (§0.4), except Gate A. Boxes marked **OWNER-VERIFY** end as `[~]`. Boxes marked **(Should)** are dropped first. Feature freeze Friday 6 PM (§0.6).
 
 ### H. Human tasks (Owner does these; Builder lists exact steps and waits only when truly blocked)
-- [ ] H1 Create private GitHub repo `tein-ucc-events`, connect local folder
-- [ ] H2 Convex account (Builder runs `npx convex dev`, Owner logs in in the browser)
-- [ ] H3 (Clerk is gone, no account needed.) Nothing to create. Builder runs the Convex Auth setup command and sets the auth keys on the dev Convex deployment; Owner only approves the browser login if asked
+- [x] H1 Create private GitHub repo `tein-ucc-events`, connect local folder
+- [x] H2 Convex account (Builder runs `npx convex dev`, Owner logs in in the browser)
+- [x] H3 (Clerk is gone, no account needed.) Nothing to create. Builder runs the Convex Auth setup command and sets the auth keys on the dev Convex deployment; Owner only approves the browser login if asked
 - [ ] H4 Arkesel account, top up a small balance, request sender ID `TEINUCC`, copy API key (can finish later; app runs in dry-run until then)
 - [ ] H5 Vercel: import GitHub repo, add env vars (`NEXT_PUBLIC_CONVEX_URL`, `NEXT_PUBLIC_SITE_URL`), add `CONVEX_DEPLOY_KEY` (production), set build command `npx convex deploy --cmd 'pnpm build'`. Builder also sets the auth keys and `SITE_URL` on the PRODUCTION Convex deployment (`--prod`). Scope `CONVEX_DEPLOY_KEY` (production) to the Production environment only; Production Branch = `main`. For `dev` preview builds Builder follows the current Convex docs for Vercel preview deployments (a separate preview deploy key / backend) so previews never touch production data; if that cannot be set up quickly, use `pnpm build` for previews and point them at the dev deployment URL
 - [ ] H6 Drop official logos into `public/brand/` (`ucc-logo.png`, `tein-ucc-logo.png`)
