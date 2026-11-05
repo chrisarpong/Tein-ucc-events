@@ -1,9 +1,9 @@
-import { mutation } from "./_generated/server";
+import { internalMutation } from "./_generated/server";
 import { v } from "convex/values";
 
 export const WES_SLUG = "women-empowerment-summit";
 
-export const seedEvent = mutation({
+export const seedEvent = internalMutation({
   args: {
     capacity: v.optional(v.number()),
   },
@@ -45,4 +45,3 @@ export const seedEvent = mutation({
     return { eventId, action: "created" };
   },
 });
-
