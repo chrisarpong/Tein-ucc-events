@@ -59,9 +59,11 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .hero-section { position:relative; display:grid; grid-template-columns:minmax(0,1.45fr) minmax(17rem,.55fr); gap:clamp(2rem,7vw,8rem); align-items:center; padding:clamp(3rem,8vw,7.75rem) clamp(1rem,8vw,8rem); color:#fff; background:var(--deep-green); overflow:hidden; }
 .hero-section::after { content:""; position:absolute; width:clamp(11rem,30vw,30rem); aspect-ratio:1; right:-9rem; top:-12rem; border:1px solid rgb(255 255 255 / 13%); border-radius:50%; box-shadow:0 0 0 2.6rem rgb(255 255 255 / 2%),0 0 0 5.2rem rgb(255 255 255 / 2%); pointer-events:none; }
 .hero-copy,.event-panel { position:relative; z-index:1; }
+.hero-identity { display:flex; align-items:center; gap:1rem; margin-bottom:clamp(1.2rem,2.4vw,2rem); }
+.hero-emblem { width:clamp(4.5rem,8vw,6.5rem); height:auto; aspect-ratio:1; flex:none; border:2px solid rgb(255 255 255 / 78%); border-radius:50%; background:#fff; object-fit:cover; box-shadow:0 6px 18px rgb(0 0 0 / 18%); }
 .eyebrow { margin:0; color:var(--green); font-size:.72rem; line-height:1.4; font-weight:800; letter-spacing:.13em; text-transform:uppercase; }
-.hero-copy>.eyebrow { color:#c1d6c6; }
-.hero-copy>.eyebrow span { color:#e26b72; padding:0 .3rem; }
+.hero-copy .eyebrow { color:#c1d6c6; }
+.hero-copy .eyebrow span { color:#e26b72; padding:0 .3rem; }
 .title-stack { margin:clamp(1.4rem,4vw,3.4rem) 0 1.5rem; }
 .edition-label { margin:0 0 .35rem .4rem; color:#dfbfc0; font-size:.8rem; letter-spacing:.12em; text-transform:uppercase; }
 .title-stack h1 { display:flex; flex-direction:column; align-items:flex-start; margin:0; font-family:var(--font-display); font-weight:900; line-height:.88; letter-spacing:-.055em; text-transform:uppercase; }
@@ -196,7 +198,9 @@ button, .button { min-width:44px; }
   .button-small { min-height:40px; padding:.48rem .7rem; font-size:.75rem; }
   .hero-section { grid-template-columns:1fr; gap:2rem; padding:3rem 1.1rem 2rem; }
   .hero-section::after { right:-8rem; top:-7rem; }
-  .title-stack { margin:1.5rem 0 1.2rem; }
+  .hero-identity { gap:.8rem; margin-bottom:1.1rem; }
+  .hero-emblem { width:4.5rem; }
+  .title-stack { margin:0 0 1.2rem; }
   .title-stack h1>span:first-child { font-size:clamp(4rem,19vw,7rem); }
   .title-accent { font-size:clamp(1.65rem,8.4vw,3.4rem); }
   .title-summit { font-size:clamp(2.8rem,12vw,4rem); }

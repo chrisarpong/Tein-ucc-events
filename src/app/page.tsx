@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useQuery } from "convex/react";
 import { ArrowDownRight, ArrowRight, CalendarDays, MapPin, Phone } from "lucide-react";
 import { api } from "../../convex/_generated/api";
@@ -28,7 +29,17 @@ export default function HomePage() {
 
       <section className="hero-section" aria-labelledby="event-title">
         <div className="hero-copy">
-          <p className="eyebrow">TEIN-UCC <span>/</span> WOMEN&apos;S COMMISSIONER</p>
+          <div className="hero-identity">
+            <Image
+              src="/ndc-emblem.png"
+              alt="National Democratic Congress emblem"
+              width={128}
+              height={128}
+              priority
+              className="hero-emblem"
+            />
+            <p className="eyebrow">TEIN-UCC <span>/</span> WOMEN&apos;S COMMISSIONER</p>
+          </div>
           <div className="title-stack">
             <p className="edition-label">Presents</p>
             <h1 id="event-title"><span>Women</span><span className="title-accent">Empowerment</span><span className="title-summit">Summit <small>2026</small></span></h1>
