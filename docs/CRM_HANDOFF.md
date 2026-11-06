@@ -2,7 +2,7 @@
 
 ## Current state
 
-The production baseline is on `main` at `fe85c9c`. The password recovery and phone-auth work is being prepared on local `dev` and has not been pushed or deployed. It does not change public attendee registrations or production data until it is deployed.
+Phone login, SMS password recovery, account security, and the staff phone-verification flow are published on `main` at `40ba042` and deployed to Convex production. The live recovery route is `https://teinucc.vercel.app/forgot-password`. The production event and attendee records were not changed by this release. Production currently has no staff accounts, so the staff CRM cannot be used until an initial staff account is provisioned.
 
 ## Routes
 
@@ -20,7 +20,7 @@ The production baseline is on `main` at `fe85c9c`. The password recovery and pho
 
 Check-in staff can access `/checkin` and their own `/security` page. Admin-only operations also enforce the role in their Convex function; hiding a menu is not the security boundary.
 
-The existing staff records have no recovery phone until enrolled. Each existing staff member should sign in and verify a number at `/security` before SMS password recovery or phone sign-in is enabled for that account. If an account is locked out before enrollment, the deployment owner may use the internal `recovery:ownerEnrollRecoveryPhone` operation only after verifying the staff member's identity and phone ownership through a trusted channel. This internal owner operation is an audited recovery fallback.
+Each staff member should sign in and verify a number at `/security` before SMS password recovery or phone sign-in is enabled for that account. If an account is locked out before enrollment, the deployment owner may use the internal `recovery:ownerEnrollRecoveryPhone` operation only after verifying the staff member's identity and phone ownership through a trusted channel. This internal owner operation is an audited recovery fallback.
 
 For an emergency password reset when no administrator can sign in, a deployment owner can issue one temporary password through the internal backend action:
 
@@ -32,7 +32,7 @@ The action invalidates existing sessions, records an audit event, and returns th
 
 ## First admin on the development deployment
 
-The temporary first admin invite has been created on the **dev** deployment for `christiananietie10@gmail.com`. The one-time code was returned to the owner in chat and is not stored in this file or the repository. It expires seven days after creation. The staff account is not active until the invitee completes signup.
+The historical first admin invite was created on the **dev** deployment only. Production has no staff records or matching first-admin invite. A production first-admin invite must be created separately by the deployment owner. Invite redemption requires phone verification by SMS, so complete it after the TEIN UCC Sender ID is approved and delivery is configured.
 
 For a future reset/bootstrap only, the one-time invite command is:
 
@@ -54,8 +54,8 @@ Then open `http://localhost:3000/sign-in`.
 
 The SMS API key belongs only in the Convex deployment secret `BULKSMSGH_API_KEY`; never add it to `.env.local`, Vercel client variables, or source control. Set `SMS_SENDER_ID` to `TEIN UCC`; live delivery requires `SMS_DRY_RUN=false`. Authentication recovery codes use a dedicated SMS path and are not stored in the general message log. Set a long random `AUTH_RECOVERY_PEPPER` as a Convex secret on dev and production; it protects recovery code and grant verifiers at rest.
 
-The BulkSMS Sender ID currently has this OTP URL saved: `https://teinucc.vercel.app/forgot-password`. The provider has placed the TEIN UCC Sender ID on hold while it reviews the URL. Once this release is live, verify that the URL opens the recovery page; do not submit the URL again because the provider dialog says it can only be set once.
+The BulkSMS Sender ID currently has this OTP URL saved: `https://teinucc.vercel.app/forgot-password`. The provider has placed the TEIN UCC Sender ID on hold while it reviews the URL. The route is now live and returns the recovery page. Do not submit the URL again because the provider dialog says it can only be set once. Recovery, phone verification, and live event messages depend on the provider approving the sender ID and delivery being configured.
 
-## Before password recovery production release
+## Remaining activation steps
 
-Deploy the frontend and Convex functions as separate release steps. Configure `AUTH_RECOVERY_PEPPER` and the BulkSMS secrets on the correct Convex deployment, verify existing staff phones are enrolled, test signup and password recovery on dev, then test the OTP sender ID and 1-minute expiry on real phones. Only after the route is live should the owner set the one-time OTP URL in BulkSMS. The phone login provider resolves the verified phone on the server and never returns the associated staff email to the browser.
+The `AUTH_RECOVERY_PEPPER` secret is configured in Convex production. After the sender ID is approved, configure/check the BulkSMS API key, `SMS_SENDER_ID=TEIN UCC`, and `SMS_DRY_RUN=false` on the production Convex deployment. Then create the first production staff invite, verify it on a real phone, test password recovery and the one-minute code expiry, and confirm phone sign-in. The phone login provider resolves the verified phone on the server and never returns the associated staff email to the browser.
