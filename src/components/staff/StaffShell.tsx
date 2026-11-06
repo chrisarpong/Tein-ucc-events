@@ -28,6 +28,7 @@ export function StaffShell({ children }: { children: React.ReactNode }) {
         <nav aria-label="Staff navigation">
           {staff?.role === "admin" && items.map(([label, href]) => <Link key={href} className={path === href || (href !== "/admin" && path.startsWith(href)) ? "is-current" : ""} href={href}>{label}</Link>)}
           <Link className={path.startsWith("/checkin") ? "is-current" : ""} href="/checkin">Door check-in</Link>
+          <Link className={path.startsWith("/security") ? "is-current" : ""} href="/security">Account security</Link>
         </nav>
         <div className="staff-side-user"><strong>{staff?.name || staff?.email}</strong><small>{staff?.role === "admin" ? "Administrator" : "Check-in staff"}</small><button onClick={handleSignOut}>Sign out</button></div>
       </aside>
