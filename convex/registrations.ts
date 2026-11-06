@@ -11,6 +11,14 @@ import { requireStaff } from "./lib/auth";
 const MINUTE = 60_000;
 const SITE_URL = (process.env.SITE_URL || "https://teinucc.vercel.app").replace(/\/$/, "");
 
+function optionalProfileField(value: string | undefined, label: string, maxLength: number) {
+  const normalized = value?.trim();
+  if (normalized && normalized.length > maxLength) {
+    throw new Error(`${label} cannot exceed ${maxLength} characters.`);
+  }
+  return normalized || undefined;
+}
+
 async function generateUnusedTicketCode(ctx: MutationCtx) {
   for (let attempt = 0; attempt < 10; attempt++) {
     const ticketCode = generateTicketCode();
@@ -30,6 +38,10 @@ const adminAttendeeFields = (registration: Doc<"registrations">) => ({
   fullName: registration.fullName,
   phone: registration.phone,
   attendeeType: registration.attendeeType,
+  position: registration.position,
+  organization: registration.organization,
+  city: registration.city,
+  country: registration.country,
   studentId: registration.studentId,
   level: registration.level,
   programme: registration.programme,
@@ -45,7 +57,7 @@ const adminAttendeeFields = (registration: Doc<"registrations">) => ({
 function applyAdminFilters(
   query: Query<NamedTableInfo<DataModel, "registrations">>,
   filters: {
-    attendeeType?: "student" | "staff" | "alumni" | "guest";
+    attendeeType?: "student" | "staff" | "alumni" | "guest" | "executive";
     source?: "online" | "walk_in" | "admin";
     checkedIn?: boolean;
   }
@@ -142,8 +154,13 @@ export const register = mutation({
       v.literal("student"),
       v.literal("staff"),
       v.literal("alumni"),
-      v.literal("guest")
+      v.literal("guest"),
+      v.literal("executive")
     ),
+    position: v.optional(v.string()),
+    organization: v.optional(v.string()),
+    city: v.optional(v.string()),
+    country: v.optional(v.string()),
     studentId: v.optional(v.string()),
     level: v.optional(v.string()),
     programme: v.optional(v.string()),
@@ -178,6 +195,10 @@ export const register = mutation({
     if (trimmedName.length < 2 || trimmedName.length > 100) {
       throw new Error("Full name must be between 2 and 100 characters");
     }
+    const position = optionalProfileField(args.position, "Position or title", 120);
+    const organization = optionalProfileField(args.organization, "Organization or institution", 160);
+    const city = optionalProfileField(args.city, "City or region", 100);
+    const country = optionalProfileField(args.country, "Country", 100);
 
     // 5. Normalize phone number
     const phoneNorm = normalizePhone(args.phone);
@@ -205,6 +226,18 @@ export const register = mutation({
         // Re-activate previously cancelled registration
         await ctx.db.patch(existing._id, {
           fullName: trimmedName,
+          gender: args.gender?.trim() || undefined,
+          attendeeType: args.attendeeType,
+          position,
+          organization,
+          city,
+          country,
+          studentId: args.studentId?.trim() || undefined,
+          level: args.level?.trim() || undefined,
+          programme: args.programme?.trim() || undefined,
+          hall: args.hall?.trim() || undefined,
+          howHeard: args.howHeard?.trim() || undefined,
+          specialNeeds: args.specialNeeds?.trim() || undefined,
           status: "registered",
           optedOut: existing.optedOut && !args.consentComms,
           consentComms: args.consentComms,
@@ -262,6 +295,10 @@ export const register = mutation({
       phone: e164,
       gender: args.gender?.trim(),
       attendeeType: args.attendeeType,
+      position,
+      organization,
+      city,
+      country,
       studentId: args.studentId?.trim(),
       level: args.level?.trim(),
       programme: args.programme?.trim(),
@@ -418,7 +455,7 @@ export const listAdminPage = query({
       v.union(v.literal("registered"), v.literal("waitlisted"), v.literal("cancelled"))
     ),
     attendeeType: v.optional(
-      v.union(v.literal("student"), v.literal("staff"), v.literal("alumni"), v.literal("guest"))
+      v.union(v.literal("student"), v.literal("staff"), v.literal("alumni"), v.literal("guest"), v.literal("executive"))
     ),
     source: v.optional(v.union(v.literal("online"), v.literal("walk_in"), v.literal("admin"))),
     checkedIn: v.optional(v.boolean()),
@@ -448,7 +485,7 @@ export const searchAdmin = query({
       v.union(v.literal("registered"), v.literal("waitlisted"), v.literal("cancelled"))
     ),
     attendeeType: v.optional(
-      v.union(v.literal("student"), v.literal("staff"), v.literal("alumni"), v.literal("guest"))
+      v.union(v.literal("student"), v.literal("staff"), v.literal("alumni"), v.literal("guest"), v.literal("executive"))
     ),
     source: v.optional(v.union(v.literal("online"), v.literal("walk_in"), v.literal("admin"))),
     checkedIn: v.optional(v.boolean()),
@@ -510,7 +547,7 @@ export const exportPage = query({
       v.union(v.literal("registered"), v.literal("waitlisted"), v.literal("cancelled"))
     ),
     attendeeType: v.optional(
-      v.union(v.literal("student"), v.literal("staff"), v.literal("alumni"), v.literal("guest"))
+      v.union(v.literal("student"), v.literal("staff"), v.literal("alumni"), v.literal("guest"), v.literal("executive"))
     ),
     source: v.optional(v.union(v.literal("online"), v.literal("walk_in"), v.literal("admin"))),
     checkedIn: v.optional(v.boolean()),
@@ -538,6 +575,10 @@ export const exportPage = query({
         fullName: registration.fullName,
         phone: registration.phone,
         attendeeType: registration.attendeeType,
+        position: registration.position,
+        organization: registration.organization,
+        city: registration.city,
+        country: registration.country,
         studentId: registration.studentId,
         level: registration.level,
         programme: registration.programme,
@@ -577,9 +618,14 @@ export const updateAttendee = mutation({
         v.literal("student"),
         v.literal("staff"),
         v.literal("alumni"),
-        v.literal("guest")
+        v.literal("guest"),
+        v.literal("executive")
       )
     ),
+    position: v.optional(v.string()),
+    organization: v.optional(v.string()),
+    city: v.optional(v.string()),
+    country: v.optional(v.string()),
     studentId: v.optional(v.string()),
     level: v.optional(v.string()),
     programme: v.optional(v.string()),
@@ -620,8 +666,13 @@ export const updateAttendee = mutation({
             throw new Error("That phone number already has a registration for this event.");
           }
           patch[k] = norm.e164;
-        } else if (["gender", "studentId", "level", "programme", "hall", "specialNeeds"].includes(k)) {
+        } else if (["gender", "position", "organization", "city", "country", "studentId", "level", "programme", "hall", "specialNeeds"].includes(k)) {
           const value = typeof v === "string" ? v.trim() : v;
+          const fieldMaxLengths: Record<string, number> = { position: 120, organization: 160, city: 100, country: 100 };
+          const maxLength = fieldMaxLengths[k];
+          if (typeof value === "string" && maxLength && value.length > maxLength) {
+            throw new Error(`${k} cannot exceed ${maxLength} characters.`);
+          }
           patch[k] = value === "" ? undefined : value;
         } else {
           patch[k] = v;
@@ -729,9 +780,14 @@ export const adminCreate = mutation({
       v.literal("student"),
       v.literal("staff"),
       v.literal("alumni"),
-      v.literal("guest")
+      v.literal("guest"),
+      v.literal("executive")
     ),
     gender: v.optional(v.string()),
+    position: v.optional(v.string()),
+    organization: v.optional(v.string()),
+    city: v.optional(v.string()),
+    country: v.optional(v.string()),
     studentId: v.optional(v.string()),
     level: v.optional(v.string()),
     programme: v.optional(v.string()),
@@ -747,6 +803,10 @@ export const adminCreate = mutation({
     if (fullName.length < 2 || fullName.length > 100) {
       throw new Error("Full name must be between 2 and 100 characters.");
     }
+    const position = optionalProfileField(args.position, "Position or title", 120);
+    const organization = optionalProfileField(args.organization, "Organization or institution", 160);
+    const city = optionalProfileField(args.city, "City or region", 100);
+    const country = optionalProfileField(args.country, "Country", 100);
 
     const norm = normalizePhone(args.phone);
     if (!norm.ok) throw new Error(norm.error);
@@ -776,6 +836,10 @@ export const adminCreate = mutation({
         phone: norm.e164,
         gender: args.gender?.trim() || undefined,
         attendeeType: args.attendeeType,
+        position,
+        organization,
+        city,
+        country,
         studentId: args.studentId?.trim() || undefined,
         level: args.level?.trim() || undefined,
         programme: args.programme?.trim() || undefined,
@@ -804,6 +868,10 @@ export const adminCreate = mutation({
       phone: norm.e164,
       gender: args.gender?.trim() || undefined,
       attendeeType: args.attendeeType,
+      position,
+      organization,
+      city,
+      country,
       studentId: args.studentId?.trim() || undefined,
       level: args.level?.trim() || undefined,
       programme: args.programme?.trim() || undefined,

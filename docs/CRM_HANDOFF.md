@@ -11,7 +11,7 @@ Phone login, SMS password recovery, account security, and the staff phone-verifi
 - `/forgot-password` — SMS code password recovery (8-digit code, 1-minute expiry, 4-minute resend cooldown).
 - `/security` — signed-in staff can add or change their own recovery phone after SMS verification.
 - `/admin` — administrator dashboard.
-- `/admin/attendees` — paginated attendee list, search, filters, record editing, cancellation, waitlist promotion, committee entry, and CSV export.
+- `/admin/attendees` — paginated attendee list, search, filters, record editing, cancellation, waitlist promotion, committee entry, and CSV export. Attendee categories include students, staff, alumni, guests, and dignitaries/executives; executive records can include position, organization, city/region, and country.
 - `/admin/team` — invites, access enable/disable, password reset for another team member, and permanent account deletion. Deletion revokes login sessions and credentials; audit history remains. You cannot delete your own account or the last active administrator.
 - `/admin/settings` — event details, open/close registration, optional capacity, and confirmation SMS toggle.
 - `/admin/messages` — consent-filtered SMS campaigns and delivery log.

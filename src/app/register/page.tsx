@@ -29,9 +29,13 @@ const registerSchema = z.object({
     .min(9, "Phone number is too short")
     .max(16, "Phone number is too long"),
   gender: z.string().optional(),
-  attendeeType: z.enum(["student", "staff", "alumni", "guest"], {
+  attendeeType: z.enum(["student", "staff", "alumni", "guest", "executive"], {
     message: "Please select your attendee category",
   }),
+  position: z.string().max(120, "Position or title is too long").optional(),
+  organization: z.string().max(160, "Organization name is too long").optional(),
+  city: z.string().max(100, "City or region is too long").optional(),
+  country: z.string().max(100, "Country name is too long").optional(),
   studentId: z.string().optional(),
   level: z.string().optional(),
   programme: z.string().optional(),
@@ -84,6 +88,10 @@ export default function RegisterPage() {
         phone: data.phone,
         gender: data.gender || undefined,
         attendeeType: data.attendeeType,
+        position: data.attendeeType === "executive" ? data.position?.trim() || undefined : undefined,
+        organization: data.attendeeType === "executive" ? data.organization?.trim() || undefined : undefined,
+        city: data.attendeeType === "executive" ? data.city?.trim() || undefined : undefined,
+        country: data.attendeeType === "executive" ? data.country?.trim() || undefined : undefined,
         studentId: data.studentId || undefined,
         level: data.level || undefined,
         programme: data.programme || undefined,
@@ -360,7 +368,7 @@ export default function RegisterPage() {
 
           <div className="space-y-4 pt-2">
             <h2 className="text-base font-bold text-slate-900 border-b border-slate-100 pb-2">
-              Academic &amp; Profile Details
+              Attendee Category &amp; Details
             </h2>
 
             {/* Attendee Type */}
@@ -368,27 +376,31 @@ export default function RegisterPage() {
               <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">
                 I am attending as <span className="text-red-500">*</span>
               </label>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                {(["student", "staff", "alumni", "guest"] as const).map(
-                  (type) => (
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {([
+                  { value: "student", label: "Student" },
+                  { value: "staff", label: "Staff" },
+                  { value: "alumni", label: "Alumni" },
+                  { value: "guest", label: "Guest" },
+                  { value: "executive", label: "Dignitary / Executive" },
+                ] as const).map(({ value, label }) => (
                     <label
-                      key={type}
+                      key={value}
                       className={`flex items-center justify-center p-2.5 rounded-xl border text-xs font-semibold uppercase cursor-pointer transition text-center ${
-                        selectedAttendeeType === type
+                        selectedAttendeeType === value
                           ? "bg-emerald-50 border-[#0A8F3F] text-[#0A8F3F] shadow-sm"
                           : "border-slate-200 text-slate-600 hover:border-slate-300"
                       }`}
                     >
                       <input
                         type="radio"
-                        value={type}
+                        value={value}
                         className="sr-only"
                         {...register("attendeeType")}
                       />
-                      <span>{type}</span>
+                      <span>{label}</span>
                     </label>
-                  )
-                )}
+                  ))}
               </div>
             </div>
 
@@ -465,6 +477,34 @@ export default function RegisterPage() {
                       className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 focus:outline-none focus:border-[#0A8F3F] bg-white"
                       {...register("hall")}
                     />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {selectedAttendeeType === "executive" && (
+              <div className="space-y-3 bg-slate-50 p-4 rounded-xl border border-slate-200/60">
+                <p className="text-sm font-semibold text-slate-800">Professional details <span className="font-normal text-slate-500">(Optional)</span></p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label htmlFor="position" className="block text-xs font-medium text-slate-700 mb-1">Official title / position</label>
+                    <input id="position" type="text" maxLength={120} placeholder="e.g. Chief Executive Officer" className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 focus:outline-none focus:border-[#0A8F3F] bg-white" {...register("position")} />
+                    {errors.position && <p className="text-xs text-red-600 mt-1">{errors.position.message}</p>}
+                  </div>
+                  <div>
+                    <label htmlFor="organization" className="block text-xs font-medium text-slate-700 mb-1">Organization / institution</label>
+                    <input id="organization" type="text" maxLength={160} placeholder="e.g. Ministry, company, university" className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 focus:outline-none focus:border-[#0A8F3F] bg-white" {...register("organization")} />
+                    {errors.organization && <p className="text-xs text-red-600 mt-1">{errors.organization.message}</p>}
+                  </div>
+                  <div>
+                    <label htmlFor="city" className="block text-xs font-medium text-slate-700 mb-1">City / region</label>
+                    <input id="city" type="text" maxLength={100} placeholder="e.g. Cape Coast, Central Region" className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 focus:outline-none focus:border-[#0A8F3F] bg-white" {...register("city")} />
+                    {errors.city && <p className="text-xs text-red-600 mt-1">{errors.city.message}</p>}
+                  </div>
+                  <div>
+                    <label htmlFor="country" className="block text-xs font-medium text-slate-700 mb-1">Country</label>
+                    <input id="country" type="text" maxLength={100} placeholder="e.g. Ghana" autoComplete="country-name" className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 focus:outline-none focus:border-[#0A8F3F] bg-white" {...register("country")} />
+                    {errors.country && <p className="text-xs text-red-600 mt-1">{errors.country.message}</p>}
                   </div>
                 </div>
               </div>

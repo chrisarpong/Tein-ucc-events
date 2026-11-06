@@ -109,8 +109,13 @@ export const walkIn = mutation({
       v.literal("student"),
       v.literal("staff"),
       v.literal("alumni"),
-      v.literal("guest")
+      v.literal("guest"),
+      v.literal("executive")
     ),
+    position: v.optional(v.string()),
+    organization: v.optional(v.string()),
+    city: v.optional(v.string()),
+    country: v.optional(v.string()),
     studentId: v.optional(v.string()),
     level: v.optional(v.string()),
     programme: v.optional(v.string()),
@@ -127,6 +132,13 @@ export const walkIn = mutation({
     const fullName = args.fullName.trim();
     if (fullName.length < 2 || fullName.length > 100) {
       throw new Error("Full name must be between 2 and 100 characters.");
+    }
+    const position = args.position?.trim() || undefined;
+    const organization = args.organization?.trim() || undefined;
+    const city = args.city?.trim() || undefined;
+    const country = args.country?.trim() || undefined;
+    if ((position?.length ?? 0) > 120 || (organization?.length ?? 0) > 160 || (city?.length ?? 0) > 100 || (country?.length ?? 0) > 100) {
+      throw new Error("Executive profile details are too long.");
     }
     const phone = normalizePhone(args.phone);
     if (!phone.ok) throw new Error(phone.error);
@@ -149,6 +161,10 @@ export const walkIn = mutation({
         fullName,
         phone: phone.e164,
         attendeeType: args.attendeeType,
+        position,
+        organization,
+        city,
+        country,
         studentId: args.studentId?.trim() || undefined,
         level: args.level?.trim() || undefined,
         programme: args.programme?.trim() || undefined,
@@ -197,6 +213,10 @@ export const walkIn = mutation({
       fullName,
       phone: phone.e164,
       attendeeType: args.attendeeType,
+      position,
+      organization,
+      city,
+      country,
       studentId: args.studentId?.trim() || undefined,
       level: args.level?.trim() || undefined,
       programme: args.programme?.trim() || undefined,

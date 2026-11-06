@@ -22,7 +22,11 @@ export default defineSchema({
     fullName: v.string(),
     phone: v.string(),                  // E.164 e.g. +233248831639
     gender: v.optional(v.string()),
-    attendeeType: v.union(v.literal("student"), v.literal("staff"), v.literal("alumni"), v.literal("guest")),
+    attendeeType: v.union(v.literal("student"), v.literal("staff"), v.literal("alumni"), v.literal("guest"), v.literal("executive")),
+    position: v.optional(v.string()),
+    organization: v.optional(v.string()),
+    city: v.optional(v.string()),
+    country: v.optional(v.string()),
     studentId: v.optional(v.string()),
     level: v.optional(v.string()),
     programme: v.optional(v.string()),
