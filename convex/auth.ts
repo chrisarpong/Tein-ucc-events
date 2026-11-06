@@ -100,6 +100,7 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
         .withIndex("by_codeHash", (q) => q.eq("codeHash", codeHash))
         .unique();
       const ownerBootstrap = profile.ownerBootstrap === true;
+      const ownerBootstrapStaff = profile.ownerBootstrapStaff === true;
       if (
         !invite ||
         invite.email !== email ||
@@ -110,7 +111,13 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
         throw new Error(INVALID_INVITE);
       }
 
-      if (ownerBootstrap !== (invite.createdBy === "owner-bootstrap") || (ownerBootstrap && invite.role !== "admin")) {
+      if (
+        ownerBootstrap !== (invite.createdBy === "owner-bootstrap") ||
+        ownerBootstrapStaff !== (invite.createdBy === "owner-bootstrap-staff") ||
+        (ownerBootstrap && invite.role !== "admin") ||
+        (ownerBootstrapStaff && invite.role !== "admin") ||
+        (ownerBootstrap && ownerBootstrapStaff)
+      ) {
         throw new Error(INVALID_INVITE);
       }
 
@@ -123,7 +130,7 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
       let verifiedPhone: string | undefined;
       if (ownerBootstrap) {
         if ((await db.query("staff").take(1)).length > 0) throw new Error(INVALID_INVITE);
-      } else {
+      } else if (!ownerBootstrapStaff) {
         const phone = normalizePhone(recoveryPhone);
         if (!phone.ok || phone.e164 !== recoveryPhone || phoneVerificationToken.length < 32) {
           throw new Error(INVALID_INVITE);
@@ -152,9 +159,15 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
       await db.patch(invite._id, { usedAt: Date.now() });
       await db.insert("auditLog", {
         actor: email,
-        action: ownerBootstrap ? "staff.bootstrap.create" : "staff.signup",
+        action: ownerBootstrap
+          ? "staff.bootstrap.create"
+          : ownerBootstrapStaff
+            ? "staff.owner_add_temporary_password"
+            : "staff.signup",
         target: String(userId),
-        meta: ownerBootstrap ? "deployment-owner temporary password; recovery phone pending" : invite.role,
+        meta: ownerBootstrap || ownerBootstrapStaff
+          ? "deployment-owner temporary password; recovery phone pending"
+          : invite.role,
       });
       return userId;
     },

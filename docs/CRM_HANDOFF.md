@@ -38,7 +38,15 @@ The historical first admin invite was created on the **dev** deployment only. If
 npx convex run recovery:ownerBootstrapFirstAdmin '{"email":"OWNER_EMAIL"}' --prod
 ```
 
-This internal action only succeeds while production has no staff accounts. It returns a generated temporary password once, creates the first administrator without a recovery phone, and writes an audit event. Sign in with the invited email and temporary password, then change the password at `/security`. After SMS is approved, add and verify a recovery phone there. This bypass is only for the first account; all later staff signups still require a verified phone and invitation.
+This internal action only succeeds while production has no staff accounts. It returns a generated temporary password once, creates the first administrator without a recovery phone, and writes an audit event. Sign in with the invited email and temporary password, then change the password at `/security`. After SMS is approved, add and verify a recovery phone there. Normal staff signup requires an invitation and verified phone; a deployment owner can use the separate internal action below for a specific additional administrator when necessary.
+
+For an additional administrator who needs account access before SMS signup is available, a deployment owner can create an email-bound account with a generated temporary password:
+
+```bash
+npx convex run recovery:ownerAddAdminWithTemporaryPassword '{"email":"STAFF_EMAIL"}' --prod
+```
+
+This internal action creates an active administrator, returns the temporary password once, and records that the recovery phone still needs verification. Give the password directly to the intended account owner, have them change it immediately at `/security`, and add and verify their recovery phone after SMS is approved. This action is callable only from the trusted Convex deployment tooling; ordinary public signup still requires an invite and SMS verification.
 
 For a future reset/bootstrap only, the one-time invite command is:
 

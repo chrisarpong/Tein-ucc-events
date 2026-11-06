@@ -295,6 +295,57 @@ export const revokeOwnerBootstrapInvite = internalMutation({
   },
 });
 
+export const createOwnerAdminInvite = internalMutation({
+  args: { email: v.string() },
+  handler: async (ctx, { email }) => {
+    const normalized = normalizedEmail(email);
+    if (normalized.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)) {
+      throw new Error("Enter a valid staff email address.");
+    }
+    const existingStaff = await ctx.db.query("staff")
+      .withIndex("by_email", (q) => q.eq("email", normalized))
+      .unique();
+    if (existingStaff) throw new Error("A staff account already exists for that email.");
+    const existingAccount = await ctx.db.query("authAccounts")
+      .withIndex("providerAndAccountId", (q) => q.eq("provider", "password").eq("providerAccountId", normalized))
+      .unique();
+    if (existingAccount) throw new Error("A password account already exists for that email.");
+
+    const now = Date.now();
+    const previousInvites = await ctx.db.query("invites")
+      .withIndex("by_email", (q) => q.eq("email", normalized))
+      .collect();
+    for (const invite of previousInvites) {
+      if (invite.createdBy === "owner-bootstrap-staff" && invite.usedAt === undefined && invite.revokedAt === undefined) {
+        await ctx.db.patch(invite._id, { revokedAt: now });
+      }
+    }
+    const code = secureInviteCode();
+    await ctx.db.insert("invites", {
+      email: normalized,
+      role: "admin",
+      codeHash: await inviteCodeHash(code),
+      expiresAt: now + 7 * 24 * 60 * 60_000,
+      createdBy: "owner-bootstrap-staff",
+    });
+    return { email: normalized, code };
+  },
+});
+
+export const revokeOwnerAdminInvite = internalMutation({
+  args: { email: v.string() },
+  handler: async (ctx, { email }) => {
+    const invites = await ctx.db.query("invites")
+      .withIndex("by_email", (q) => q.eq("email", normalizedEmail(email)))
+      .collect();
+    for (const invite of invites) {
+      if (invite.createdBy === "owner-bootstrap-staff" && invite.usedAt === undefined && invite.revokedAt === undefined) {
+        await ctx.db.patch(invite._id, { revokedAt: Date.now() });
+      }
+    }
+  },
+});
+
 export const recordOwnerPasswordReset = internalMutation({
   args: { staffId: v.id("staff") },
   handler: async (ctx, { staffId }) => {
@@ -362,6 +413,32 @@ export const ownerBootstrapFirstAdmin = internalAction({
       throw error;
     }
     return { email: state.email, temporaryPassword, name };
+  },
+});
+
+/** One-time owner-only setup for an additional administrator while SMS is unavailable. */
+export const ownerAddAdminWithTemporaryPassword = internalAction({
+  args: { email: v.string() },
+  handler: async (ctx, { email }): Promise<{ email: string; temporaryPassword: string }> => {
+    const normalized = normalizedEmail(email);
+    const temporaryPassword = randomTemporaryPassword();
+    const invite = await ctx.runMutation(internal.recovery.createOwnerAdminInvite, { email: normalized });
+    try {
+      await createAccount(ctx, {
+        provider: "password",
+        account: { id: normalized, secret: temporaryPassword },
+        profile: {
+          email: normalized,
+          name: "TEIN UCC Admin",
+          inviteCode: invite.code,
+          ownerBootstrapStaff: true,
+        } as never,
+      });
+    } catch (error) {
+      await ctx.runMutation(internal.recovery.revokeOwnerAdminInvite, { email: normalized });
+      throw error;
+    }
+    return { email: normalized, temporaryPassword };
   },
 });
 
