@@ -2,7 +2,7 @@
 
 ## Current state
 
-Phone login, SMS password recovery, account security, and the staff phone-verification flow are published on `main` at `40ba042` and deployed to Convex production. The live recovery route is `https://teinucc.vercel.app/forgot-password`. The production event and attendee records were not changed by this release. Production currently has no staff accounts, so the staff CRM cannot be used until an initial staff account is provisioned.
+Phone login, SMS password recovery, account security, and the staff phone-verification flow are published on `main` and deployed to Convex production. The live recovery route is `https://teinucc.vercel.app/forgot-password`. The production event and attendee records were not changed by this release. The initial production administrator is now active with email/password sign-in; its recovery phone is not yet verified because the TEIN UCC sender ID is awaiting approval.
 
 ## Routes
 
@@ -32,7 +32,7 @@ The action invalidates existing sessions, records an audit event, and returns th
 
 ## First admin on the development deployment
 
-The historical first admin invite was created on the **dev** deployment only. Production has no staff accounts. If SMS signup is not available yet, a deployment owner can create the first production administrator with a one-time temporary password:
+The historical first admin invite was created on the **dev** deployment only. If SMS signup is not available yet and production has no staff accounts, a deployment owner can create the first production administrator with a one-time temporary password:
 
 ```sh
 npx convex run recovery:ownerBootstrapFirstAdmin '{"email":"OWNER_EMAIL"}' --prod
