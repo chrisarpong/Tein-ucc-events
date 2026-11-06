@@ -51,10 +51,12 @@ export default defineSchema({
     userId: v.id("users"),              // the Convex Auth user, created at sign-up
     email: v.string(),                  // lowercase
     name: v.optional(v.string()),
+    recoveryPhone: v.optional(v.string()), // verified E.164 phone used for login/recovery
+    recoveryPhoneVerifiedAt: v.optional(v.number()),
     role: v.union(v.literal("admin"), v.literal("checkin")),
     active: v.boolean(),
     lastLoginAt: v.optional(v.number()),
-  }).index("by_userId", ["userId"]).index("by_email", ["email"]),
+  }).index("by_userId", ["userId"]).index("by_email", ["email"]).index("by_recoveryPhone", ["recoveryPhone"]),
 
   invites: defineTable({
     email: v.string(),                  // lowercase; the code only works for this email
@@ -65,6 +67,26 @@ export default defineSchema({
     revokedAt: v.optional(v.number()),
     createdBy: v.string(),              // admin email, or "bootstrap"
   }).index("by_email", ["email"]).index("by_codeHash", ["codeHash"]),
+
+  authChallenges: defineTable({
+    purpose: v.union(v.literal("signup_phone"), v.literal("password_reset"), v.literal("phone_change")),
+    email: v.string(),
+    phone: v.string(),
+    staffId: v.optional(v.id("staff")),
+    salt: v.string(),
+    codeHash: v.string(),
+    status: v.union(v.literal("pending"), v.literal("sent"), v.literal("failed"), v.literal("verified"), v.literal("consumed")),
+    attempts: v.number(),
+    createdAt: v.number(),
+    expiresAt: v.number(),
+    verifiedAt: v.optional(v.number()),
+    verificationTokenHash: v.optional(v.string()),
+    verificationExpiresAt: v.optional(v.number()),
+    resetReservedAt: v.optional(v.number()),
+  })
+    .index("by_email_purpose", ["email", "purpose"])
+    .index("by_phone_purpose", ["phone", "purpose"])
+    .index("by_staff_purpose", ["staffId", "purpose"]),
 
   campaigns: defineTable({
     eventId: v.id("events"),

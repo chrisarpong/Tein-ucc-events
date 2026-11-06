@@ -1,6 +1,11 @@
 import { convexAuth } from "@convex-dev/auth/server";
 import { Password } from "@convex-dev/auth/providers/Password";
+import { ConvexCredentials } from "@convex-dev/auth/providers/ConvexCredentials";
+import { retrieveAccount } from "@convex-dev/auth/server";
 import type { MutationCtx } from "./_generated/server";
+import { internal } from "./_generated/api";
+import { normalizePhone } from "./lib/normalizePhone";
+import { keyedHash } from "./lib/recoveryCrypto";
 
 const INVALID_INVITE = "This invite is invalid or has expired. Ask your admin for a new one.";
 const EMAIL_OR_PASSWORD = "Email or password is incorrect";
@@ -17,6 +22,26 @@ async function hashInviteCode(code: string) {
 
 export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
   providers: [
+    ConvexCredentials({
+      id: "phone-password",
+      async authorize(credentials, ctx) {
+        const phoneInput = typeof credentials.phone === "string" ? credentials.phone : "";
+        const password = typeof credentials.password === "string" ? credentials.password : "";
+        const normalized = normalizePhone(phoneInput);
+        if (!normalized.ok || !password) return null;
+        const target = await ctx.runQuery(internal.recovery.getPhoneLoginTarget, { phone: normalized.e164 });
+        if (!target) return null;
+        try {
+          const result = await retrieveAccount(ctx, {
+            provider: "password",
+            account: { id: target.email, secret: password },
+          });
+          return result.user._id === target.userId ? { userId: target.userId } : null;
+        } catch {
+          return null;
+        }
+      },
+    }),
     Password({
       profile(params) {
         const email = String(params.email ?? "").trim().toLowerCase();
@@ -27,16 +52,19 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
         if (params.flow !== "signUp") return { email };
 
         const name = String(params.name ?? "").trim();
+        const phoneInput = String(params.recoveryPhone ?? "");
+        const phone = normalizePhone(phoneInput);
+        const phoneVerificationToken = String(params.phoneVerificationToken ?? "");
         const inviteCode = String(params.inviteCode ?? "")
           .trim()
           .toUpperCase();
-        if (name.length < 2 || name.length > 80 || inviteCode.length !== 8) {
+        if (name.length < 2 || name.length > 80 || inviteCode.length !== 8 || !phone.ok || phoneVerificationToken.length < 32) {
           throw new Error(INVALID_INVITE);
         }
 
         // inviteCode is passed only to the transactional callback below. That
         // callback constructs the users row explicitly without this property.
-        return { email, name, inviteCode } as never;
+        return { email, name, inviteCode, recoveryPhone: phone.e164, phoneVerificationToken } as never;
       },
       validatePasswordRequirements(password) {
         if (password.length < 10) {
@@ -59,6 +87,8 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
       const email = String(profile.email ?? "").trim().toLowerCase();
       const name = String(profile.name ?? "").trim();
       const inviteCode = String(profile.inviteCode ?? "").trim().toUpperCase();
+      const recoveryPhone = String(profile.recoveryPhone ?? "");
+      const phoneVerificationToken = String(profile.phoneVerificationToken ?? "");
       if (!email || name.length < 2 || name.length > 80 || inviteCode.length !== 8) {
         throw new Error(INVALID_INVITE);
       }
@@ -85,11 +115,27 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
         .unique();
       if (existingStaff) throw new Error(INVALID_INVITE);
 
+      const phone = normalizePhone(recoveryPhone);
+      if (!phone.ok || phone.e164 !== recoveryPhone || phoneVerificationToken.length < 32) {
+        throw new Error(INVALID_INVITE);
+      }
+      const phoneOwner = await db.query("staff").withIndex("by_recoveryPhone", (q) => q.eq("recoveryPhone", recoveryPhone)).unique();
+      if (phoneOwner) throw new Error(INVALID_INVITE);
+      const proofHash = await keyedHash(`signup:${email}:${recoveryPhone}:${phoneVerificationToken}`);
+      const proofRows = await db.query("authChallenges")
+        .withIndex("by_email_purpose", (q) => q.eq("email", email).eq("purpose", "signup_phone"))
+        .order("desc").take(10);
+      const proof = proofRows.find((row) => row.phone === recoveryPhone && row.status === "verified" && row.verificationExpiresAt !== undefined && row.verificationExpiresAt > Date.now() && row.verificationTokenHash === proofHash);
+      if (!proof) throw new Error(INVALID_INVITE);
+      await db.patch(proof._id, { status: "consumed", verificationTokenHash: undefined });
+
       const userId = await db.insert("users", { email, name });
       await db.insert("staff", {
         userId,
         email,
         name,
+        recoveryPhone,
+        recoveryPhoneVerifiedAt: Date.now(),
         role: invite.role,
         active: true,
       });

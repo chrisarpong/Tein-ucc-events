@@ -95,6 +95,8 @@ export const me = query({
       name: staff.name,
       role: staff.role,
       active: staff.active,
+      recoveryPhoneMasked: staff.recoveryPhone ? `••••••${staff.recoveryPhone.slice(-4)}` : null,
+      recoveryPhoneVerified: Boolean(staff.recoveryPhoneVerifiedAt),
     };
   },
 });
@@ -190,13 +192,15 @@ export const list = query({
     const staff = await ctx.db.query("staff").collect();
     return staff
       .sort((a, b) => a.email.localeCompare(b.email))
-      .map(({ _id, email, name, role, active, lastLoginAt }) => ({
+      .map(({ _id, email, name, role, active, lastLoginAt, recoveryPhone, recoveryPhoneVerifiedAt }) => ({
         _id,
         email,
         name,
         role,
         active,
         lastLoginAt,
+        recoveryPhoneMasked: recoveryPhone ? `••••••${recoveryPhone.slice(-4)}` : null,
+        recoveryPhoneVerified: Boolean(recoveryPhoneVerifiedAt),
       }));
   },
 });
