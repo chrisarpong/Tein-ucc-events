@@ -2,9 +2,14 @@ const ALPHABET = "23456789ABCDEFGHJKMNPQRSTUVWXYZ";
 
 export function generateRawCode(length: number = 6): string {
   let result = "";
-  for (let i = 0; i < length; i++) {
-    const randomIndex = Math.floor(Math.random() * ALPHABET.length);
-    result += ALPHABET[randomIndex];
+  const unbiasedLimit = Math.floor(256 / ALPHABET.length) * ALPHABET.length;
+  while (result.length < length) {
+    const bytes = crypto.getRandomValues(new Uint8Array(Math.max(length, 8)));
+    for (const byte of bytes) {
+      if (byte >= unbiasedLimit) continue;
+      result += ALPHABET[byte % ALPHABET.length];
+      if (result.length === length) break;
+    }
   }
   return result;
 }

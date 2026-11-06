@@ -17,7 +17,7 @@ export default function HomePage() {
       <header className="site-header">
         <Link href="/" className="brand-lockup" aria-label="TEIN-UCC Women Empowerment Summit home">
           <Image
-            src="/ndc-emblem.png"
+            src="/tein-ucc-round.png"
             alt=""
             aria-hidden="true"
             width={64}
@@ -38,8 +38,8 @@ export default function HomePage() {
         <div className="hero-copy">
           <div className="hero-identity">
             <Image
-              src="/ndc-emblem.png"
-              alt="National Democratic Congress emblem"
+            src="/tein-ucc-round.png"
+            alt="TEIN-UCC umbrella emblem"
               width={128}
               height={128}
               priority

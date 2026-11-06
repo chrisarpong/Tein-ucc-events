@@ -34,6 +34,7 @@ export const getPublic = query({
       startsAt: event.startsAt,
       capacity: event.capacity,
       registrationOpen: event.registrationOpen,
+      confirmationSmsEnabled: event.confirmationSmsEnabled,
       spotsLeft,
     };
   },
@@ -46,7 +47,7 @@ export const update = mutation({
     theme: v.optional(v.string()),
     venue: v.optional(v.string()),
     startsAt: v.optional(v.number()),
-    capacity: v.optional(v.number()),
+    capacity: v.optional(v.union(v.number(), v.null())),
     registrationOpen: v.optional(v.boolean()),
     confirmationSmsEnabled: v.optional(v.boolean()),
   },
@@ -59,11 +60,18 @@ export const update = mutation({
       throw new Error("Event not found");
     }
 
+    if (args.capacity !== undefined && args.capacity !== null && (!Number.isInteger(args.capacity) || args.capacity < 1)) {
+      throw new Error("Capacity must be a whole number greater than zero, or left blank for no limit.");
+    }
+    if (args.name !== undefined && (args.name.trim().length < 2 || args.name.trim().length > 120)) {
+      throw new Error("Event name must be between 2 and 120 characters.");
+    }
+
     // Filter out undefined values
     const patch: Record<string, unknown> = {};
     for (const [key, val] of Object.entries(updates)) {
       if (val !== undefined) {
-        patch[key] = val;
+        patch[key] = key === "capacity" && val === null ? undefined : val;
       }
     }
 
