@@ -36,9 +36,16 @@ export default defineSchema({
     checkedInAt: v.optional(v.number()),
     checkedInBy: v.optional(v.string()),   // staff email
   })
+    .index("by_event", ["eventId"])
     .index("by_event_phone", ["eventId", "phone"])
     .index("by_ticket", ["ticketCode"])
-    .index("by_event_status", ["eventId", "status"]),
+    .index("by_event_status", ["eventId", "status"])
+    .index("by_event_checkedIn", ["eventId", "checkedInAt"])
+    .index("by_event_status_checkedIn", ["eventId", "status", "checkedInAt"])
+    .searchIndex("search_by_name", {
+      searchField: "fullName",
+      filterFields: ["eventId"],
+    }),
 
   staff: defineTable({
     userId: v.id("users"),              // the Convex Auth user, created at sign-up
@@ -69,6 +76,8 @@ export default defineSchema({
     failed: v.number(),
     state: v.union(v.literal("queued"), v.literal("sending"), v.literal("done")),
     createdBy: v.string(),
+    paginationCursor: v.optional(v.string()),
+    completedAt: v.optional(v.number()),
   }).index("by_event", ["eventId"]),
 
   messages: defineTable({

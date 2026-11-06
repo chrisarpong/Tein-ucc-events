@@ -1,13 +1,75 @@
 import { query, mutation, internalMutation, type MutationCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
-import type { Id } from "./_generated/dataModel";
+import type { DataModel, Doc, Id } from "./_generated/dataModel";
+import type { NamedTableInfo, Query } from "convex/server";
 import { v } from "convex/values";
+import { paginationOptsValidator } from "convex/server";
 import { normalizePhone } from "./lib/normalizePhone";
 import { generateTicketCode } from "./lib/ticketCode";
 import { requireStaff } from "./lib/auth";
 
 const MINUTE = 60_000;
 const SITE_URL = (process.env.SITE_URL || "https://teinucc.vercel.app").replace(/\/$/, "");
+
+async function generateUnusedTicketCode(ctx: MutationCtx) {
+  for (let attempt = 0; attempt < 10; attempt++) {
+    const ticketCode = generateTicketCode();
+    const existing = await ctx.db
+      .query("registrations")
+      .withIndex("by_ticket", (q) => q.eq("ticketCode", ticketCode))
+      .unique();
+    if (!existing) return ticketCode;
+  }
+  throw new Error("Could not issue a ticket code. Please try again.");
+}
+
+const adminAttendeeFields = (registration: Doc<"registrations">) => ({
+  _id: registration._id,
+  _creationTime: registration._creationTime,
+  ticketCode: registration.ticketCode,
+  fullName: registration.fullName,
+  phone: registration.phone,
+  attendeeType: registration.attendeeType,
+  studentId: registration.studentId,
+  level: registration.level,
+  programme: registration.programme,
+  hall: registration.hall,
+  status: registration.status,
+  source: registration.source,
+  checkedInAt: registration.checkedInAt,
+  checkedInBy: registration.checkedInBy,
+  consentComms: registration.consentComms,
+  optedOut: registration.optedOut,
+});
+
+function applyAdminFilters(
+  query: Query<NamedTableInfo<DataModel, "registrations">>,
+  filters: {
+    attendeeType?: "student" | "staff" | "alumni" | "guest";
+    source?: "online" | "walk_in" | "admin";
+    checkedIn?: boolean;
+  }
+) {
+  let filtered: Query<NamedTableInfo<DataModel, "registrations">> = query;
+  if (filters.attendeeType) {
+    filtered = filtered.filter((q) =>
+      q.eq(q.field("attendeeType"), filters.attendeeType)
+    );
+  }
+  if (filters.source) {
+    filtered = filtered.filter((q) => q.eq(q.field("source"), filters.source));
+  }
+  if (filters.checkedIn === true) {
+    filtered = filtered.filter((q) =>
+      q.neq(q.field("checkedInAt"), undefined)
+    );
+  } else if (filters.checkedIn === false) {
+    filtered = filtered.filter((q) =>
+      q.eq(q.field("checkedInAt"), undefined)
+    );
+  }
+  return filtered;
+}
 
 async function queueSms(
   ctx: MutationCtx,
@@ -111,8 +173,6 @@ export const register = mutation({
       throw new Error("Registration is currently closed for this event");
     }
 
-    await consumeRateLimit(ctx, "registration-global", 60, MINUTE);
-
     // 4. Validate and normalize name
     const trimmedName = args.fullName.trim();
     if (trimmedName.length < 2 || trimmedName.length > 100) {
@@ -146,7 +206,7 @@ export const register = mutation({
         await ctx.db.patch(existing._id, {
           fullName: trimmedName,
           status: "registered",
-          optedOut: false,
+          optedOut: existing.optedOut && !args.consentComms,
           consentComms: args.consentComms,
         });
         return {
@@ -192,15 +252,7 @@ export const register = mutation({
       : "registered";
 
     // 8. Generate unique ticket code
-    let ticketCode = generateTicketCode();
-    for (let attempts = 0; attempts < 5; attempts++) {
-      const codeCheck = await ctx.db
-        .query("registrations")
-        .withIndex("by_ticket", (q) => q.eq("ticketCode", ticketCode))
-        .unique();
-      if (!codeCheck) break;
-      ticketCode = generateTicketCode();
-    }
+    const ticketCode = await generateUnusedTicketCode(ctx);
 
     // 9. Insert registration
     const regId = await ctx.db.insert("registrations", {
@@ -358,17 +410,159 @@ export const cleanupRateLimits = internalMutation({
   },
 });
 
-export const listForEvent = query({
-  args: { eventId: v.id("events") },
+export const listAdminPage = query({
+  args: {
+    eventId: v.id("events"),
+    paginationOpts: paginationOptsValidator,
+    status: v.optional(
+      v.union(v.literal("registered"), v.literal("waitlisted"), v.literal("cancelled"))
+    ),
+    attendeeType: v.optional(
+      v.union(v.literal("student"), v.literal("staff"), v.literal("alumni"), v.literal("guest"))
+    ),
+    source: v.optional(v.union(v.literal("online"), v.literal("walk_in"), v.literal("admin"))),
+    checkedIn: v.optional(v.boolean()),
+  },
   handler: async (ctx, args) => {
     await requireStaff(ctx, ["admin"]);
+    const baseQuery = args.status
+      ? ctx.db
+          .query("registrations")
+          .withIndex("by_event_status", (q) =>
+            q.eq("eventId", args.eventId).eq("status", args.status!)
+          )
+      : ctx.db
+          .query("registrations")
+          .withIndex("by_event", (q) => q.eq("eventId", args.eventId));
+    const filtered = applyAdminFilters(baseQuery, args);
+    const page = await filtered.order("desc").paginate(args.paginationOpts);
+    return { ...page, page: page.page.map(adminAttendeeFields) };
+  },
+});
 
-    const rows = await ctx.db
-      .query("registrations")
-      .withIndex("by_event_status", (q) => q.eq("eventId", args.eventId))
-      .take(2000);
+export const searchAdmin = query({
+  args: {
+    eventId: v.id("events"),
+    term: v.string(),
+    status: v.optional(
+      v.union(v.literal("registered"), v.literal("waitlisted"), v.literal("cancelled"))
+    ),
+    attendeeType: v.optional(
+      v.union(v.literal("student"), v.literal("staff"), v.literal("alumni"), v.literal("guest"))
+    ),
+    source: v.optional(v.union(v.literal("online"), v.literal("walk_in"), v.literal("admin"))),
+    checkedIn: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    await requireStaff(ctx, ["admin"]);
+    const term = args.term.trim();
+    if (term.length < 2) return [];
 
-    return rows;
+    let records;
+    const normalizedPhone = normalizePhone(term);
+    if (normalizedPhone.ok) {
+      const registration = await ctx.db
+        .query("registrations")
+        .withIndex("by_event_phone", (q) =>
+          q.eq("eventId", args.eventId).eq("phone", normalizedPhone.e164)
+        )
+        .unique();
+      records = registration ? [registration] : [];
+    } else if (/^WES-[A-Z0-9]{1,10}$/i.test(term)) {
+      const registration = await ctx.db
+        .query("registrations")
+        .withIndex("by_ticket", (q) => q.eq("ticketCode", term.toUpperCase()))
+        .unique();
+      records = registration?.eventId === args.eventId ? [registration] : [];
+    } else {
+      records = await ctx.db
+        .query("registrations")
+        .withSearchIndex("search_by_name", (q) =>
+          q.search("fullName", term).eq("eventId", args.eventId)
+        )
+        .take(250);
+    }
+
+    const filtered = records.filter((registration) => {
+      if (args.status && registration.status !== args.status) return false;
+      if (args.attendeeType && registration.attendeeType !== args.attendeeType) return false;
+      if (args.source && registration.source !== args.source) return false;
+      if (args.checkedIn !== undefined && Boolean(registration.checkedInAt) !== args.checkedIn) return false;
+      return true;
+    });
+    return filtered.slice(0, 100).map(adminAttendeeFields);
+  },
+});
+
+export const adminDetail = query({
+  args: { registrationId: v.id("registrations") },
+  handler: async (ctx, { registrationId }) => {
+    await requireStaff(ctx, ["admin"]);
+    return await ctx.db.get(registrationId);
+  },
+});
+
+export const exportPage = query({
+  args: {
+    eventId: v.id("events"),
+    paginationOpts: paginationOptsValidator,
+    status: v.optional(
+      v.union(v.literal("registered"), v.literal("waitlisted"), v.literal("cancelled"))
+    ),
+    attendeeType: v.optional(
+      v.union(v.literal("student"), v.literal("staff"), v.literal("alumni"), v.literal("guest"))
+    ),
+    source: v.optional(v.union(v.literal("online"), v.literal("walk_in"), v.literal("admin"))),
+    checkedIn: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    await requireStaff(ctx, ["admin"]);
+    const baseQuery = args.status
+      ? ctx.db
+          .query("registrations")
+          .withIndex("by_event_status", (q) =>
+            q.eq("eventId", args.eventId).eq("status", args.status!)
+          )
+      : ctx.db
+          .query("registrations")
+          .withIndex("by_event", (q) => q.eq("eventId", args.eventId));
+    const filtered = applyAdminFilters(baseQuery, args);
+    const page = await filtered.order("desc").paginate({
+      ...args.paginationOpts,
+      numItems: Math.min(args.paginationOpts.numItems, 250),
+    });
+    return {
+      ...page,
+      page: page.page.map((registration: Doc<"registrations">) => ({
+        ticketCode: registration.ticketCode,
+        fullName: registration.fullName,
+        phone: registration.phone,
+        attendeeType: registration.attendeeType,
+        studentId: registration.studentId,
+        level: registration.level,
+        programme: registration.programme,
+        hall: registration.hall,
+        status: registration.status,
+        source: registration.source,
+        checkedInAt: registration.checkedInAt,
+      })),
+    };
+  },
+});
+
+export const recordExport = mutation({
+  args: {
+    rowCount: v.number(),
+    filters: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const staff = await requireStaff(ctx, ["admin"]);
+    await ctx.db.insert("auditLog", {
+      actor: staff.email,
+      action: "registration.export",
+      meta: JSON.stringify({ rowCount: args.rowCount, filters: args.filters.slice(0, 240) }),
+    });
+    return { success: true };
   },
 });
 
@@ -377,6 +571,7 @@ export const updateAttendee = mutation({
     registrationId: v.id("registrations"),
     fullName: v.optional(v.string()),
     phone: v.optional(v.string()),
+    gender: v.optional(v.string()),
     attendeeType: v.optional(
       v.union(
         v.literal("student"),
@@ -385,6 +580,7 @@ export const updateAttendee = mutation({
         v.literal("guest")
       )
     ),
+    studentId: v.optional(v.string()),
     level: v.optional(v.string()),
     programme: v.optional(v.string()),
     hall: v.optional(v.string()),
@@ -400,13 +596,33 @@ export const updateAttendee = mutation({
       throw new Error("Registration not found");
     }
 
+    if (patchData.fullName !== undefined) {
+      const name = patchData.fullName.trim();
+      if (name.length < 2 || name.length > 100) {
+        throw new Error("Full name must be between 2 and 100 characters.");
+      }
+      patchData.fullName = name;
+    }
+
     const patch: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(patchData)) {
       if (v !== undefined) {
         if (k === "phone") {
           const norm = normalizePhone(v as string);
           if (!norm.ok) throw new Error(norm.error);
+          const duplicate = await ctx.db
+            .query("registrations")
+            .withIndex("by_event_phone", (q) =>
+              q.eq("eventId", existing.eventId).eq("phone", norm.e164)
+            )
+            .unique();
+          if (duplicate && duplicate._id !== registrationId) {
+            throw new Error("That phone number already has a registration for this event.");
+          }
           patch[k] = norm.e164;
+        } else if (["gender", "studentId", "level", "programme", "hall", "specialNeeds"].includes(k)) {
+          const value = typeof v === "string" ? v.trim() : v;
+          patch[k] = value === "" ? undefined : value;
         } else {
           patch[k] = v;
         }
@@ -418,8 +634,8 @@ export const updateAttendee = mutation({
     await ctx.db.insert("auditLog", {
       actor: staff.email,
       action: "registration.update",
-      target: existing.ticketCode,
-      meta: JSON.stringify(patch),
+      target: String(registrationId),
+      meta: JSON.stringify({ changedFields: Object.keys(patch).sort() }),
     });
 
     return { success: true };
@@ -432,14 +648,14 @@ export const cancel = mutation({
     const staff = await requireStaff(ctx, ["admin"]);
     const existing = await ctx.db.get(args.registrationId);
     if (!existing) throw new Error("Registration not found");
+    if (existing.status === "cancelled") return { success: true };
 
     await ctx.db.patch(args.registrationId, { status: "cancelled" });
 
     await ctx.db.insert("auditLog", {
       actor: staff.email,
       action: "registration.cancel",
-      target: existing.ticketCode,
-      meta: existing.phone,
+      target: String(args.registrationId),
     });
 
     return { success: true };
@@ -452,13 +668,29 @@ export const promote = mutation({
     const staff = await requireStaff(ctx, ["admin"]);
     const existing = await ctx.db.get(args.registrationId);
     if (!existing) throw new Error("Registration not found");
+    if (existing.status !== "waitlisted") {
+      throw new Error("Only a waitlisted registration can be promoted.");
+    }
+    const event = await ctx.db.get(existing.eventId);
+    if (!event) throw new Error("Event not found.");
+    if (event.capacity !== undefined) {
+      const registered = await ctx.db
+        .query("registrations")
+        .withIndex("by_event_status", (q) =>
+          q.eq("eventId", existing.eventId).eq("status", "registered")
+        )
+        .collect();
+      if (registered.length >= event.capacity) {
+        throw new Error("The event is still at capacity.");
+      }
+    }
 
     await ctx.db.patch(args.registrationId, { status: "registered" });
 
     await ctx.db.insert("auditLog", {
       actor: staff.email,
       action: "registration.promote",
-      target: existing.ticketCode,
+      target: String(args.registrationId),
     });
 
     return { success: true };
@@ -480,7 +712,7 @@ export const setOptedOut = mutation({
     await ctx.db.insert("auditLog", {
       actor: staff.email,
       action: "registration.optOut",
-      target: existing.ticketCode,
+      target: String(args.registrationId),
       meta: String(args.optedOut),
     });
 
@@ -500,6 +732,7 @@ export const adminCreate = mutation({
       v.literal("guest")
     ),
     gender: v.optional(v.string()),
+    studentId: v.optional(v.string()),
     level: v.optional(v.string()),
     programme: v.optional(v.string()),
     hall: v.optional(v.string()),
@@ -508,35 +741,88 @@ export const adminCreate = mutation({
   handler: async (ctx, args) => {
     const staff = await requireStaff(ctx, ["admin"]);
 
+    const event = await ctx.db.get(args.eventId);
+    if (!event) throw new Error("Event not found.");
+    const fullName = args.fullName.trim();
+    if (fullName.length < 2 || fullName.length > 100) {
+      throw new Error("Full name must be between 2 and 100 characters.");
+    }
+
     const norm = normalizePhone(args.phone);
     if (!norm.ok) throw new Error(norm.error);
 
-    const ticketCode = generateTicketCode();
+    const duplicate = await ctx.db
+      .query("registrations")
+      .withIndex("by_event_phone", (q) =>
+        q.eq("eventId", args.eventId).eq("phone", norm.e164)
+      )
+      .unique();
+    if (duplicate && duplicate.status !== "cancelled") {
+      throw new Error("That phone number already has a registration for this event.");
+    }
+
+    let status: "registered" | "waitlisted" = "registered";
+    if (event.capacity !== undefined) {
+      const registered = await ctx.db
+        .query("registrations")
+        .withIndex("by_event_status", (q) => q.eq("eventId", args.eventId).eq("status", "registered"))
+        .collect();
+      if (registered.length >= event.capacity) status = "waitlisted";
+    }
+
+    if (duplicate) {
+      await ctx.db.patch(duplicate._id, {
+        fullName,
+        phone: norm.e164,
+        gender: args.gender?.trim() || undefined,
+        attendeeType: args.attendeeType,
+        studentId: args.studentId?.trim() || undefined,
+        level: args.level?.trim() || undefined,
+        programme: args.programme?.trim() || undefined,
+        hall: args.hall?.trim() || undefined,
+        specialNeeds: args.specialNeeds?.trim() || undefined,
+        consentComms: false,
+        status,
+        source: "admin",
+        checkedInAt: undefined,
+        checkedInBy: undefined,
+      });
+      await ctx.db.insert("auditLog", {
+        actor: staff.email,
+        action: "registration.adminReactivate",
+        target: String(duplicate._id),
+        meta: status,
+      });
+      return { registrationId: duplicate._id, ticketCode: duplicate.ticketCode, status };
+    }
+
+    const ticketCode = await generateUnusedTicketCode(ctx);
     const id = await ctx.db.insert("registrations", {
       eventId: args.eventId,
       ticketCode,
-      fullName: args.fullName.trim(),
+      fullName,
       phone: norm.e164,
-      gender: args.gender,
+      gender: args.gender?.trim() || undefined,
       attendeeType: args.attendeeType,
-      level: args.level,
-      programme: args.programme,
-      hall: args.hall,
-      specialNeeds: args.specialNeeds,
+      studentId: args.studentId?.trim() || undefined,
+      level: args.level?.trim() || undefined,
+      programme: args.programme?.trim() || undefined,
+      hall: args.hall?.trim() || undefined,
+      specialNeeds: args.specialNeeds?.trim() || undefined,
       consentComms: false,
       optedOut: false,
-      status: "registered",
+      status,
       source: "admin",
     });
 
     await ctx.db.insert("auditLog", {
       actor: staff.email,
       action: "registration.adminCreate",
-      target: ticketCode,
-      meta: norm.e164,
+      target: String(id),
+      meta: status,
     });
 
-    return { registrationId: id, ticketCode };
+    return { registrationId: id, ticketCode, status };
   },
 });
 
