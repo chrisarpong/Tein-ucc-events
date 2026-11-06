@@ -32,7 +32,13 @@ The action invalidates existing sessions, records an audit event, and returns th
 
 ## First admin on the development deployment
 
-The historical first admin invite was created on the **dev** deployment only. Production has no staff records or matching first-admin invite. A production first-admin invite must be created separately by the deployment owner. Invite redemption requires phone verification by SMS, so complete it after the TEIN UCC Sender ID is approved and delivery is configured.
+The historical first admin invite was created on the **dev** deployment only. Production has no staff accounts. If SMS signup is not available yet, a deployment owner can create the first production administrator with a one-time temporary password:
+
+```sh
+npx convex run recovery:ownerBootstrapFirstAdmin '{"email":"OWNER_EMAIL"}' --prod
+```
+
+This internal action only succeeds while production has no staff accounts. It returns a generated temporary password once, creates the first administrator without a recovery phone, and writes an audit event. Sign in with the invited email and temporary password, then change the password at `/security`. After SMS is approved, add and verify a recovery phone there. This bypass is only for the first account; all later staff signups still require a verified phone and invitation.
 
 For a future reset/bootstrap only, the one-time invite command is:
 

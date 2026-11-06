@@ -99,6 +99,7 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
         .query("invites")
         .withIndex("by_codeHash", (q) => q.eq("codeHash", codeHash))
         .unique();
+      const ownerBootstrap = profile.ownerBootstrap === true;
       if (
         !invite ||
         invite.email !== email ||
@@ -109,42 +110,51 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
         throw new Error(INVALID_INVITE);
       }
 
+      if (ownerBootstrap !== (invite.createdBy === "owner-bootstrap") || (ownerBootstrap && invite.role !== "admin")) {
+        throw new Error(INVALID_INVITE);
+      }
+
       const existingStaff = await db
         .query("staff")
         .withIndex("by_email", (q) => q.eq("email", email))
         .unique();
       if (existingStaff) throw new Error(INVALID_INVITE);
 
-      const phone = normalizePhone(recoveryPhone);
-      if (!phone.ok || phone.e164 !== recoveryPhone || phoneVerificationToken.length < 32) {
-        throw new Error(INVALID_INVITE);
+      let verifiedPhone: string | undefined;
+      if (ownerBootstrap) {
+        if ((await db.query("staff").take(1)).length > 0) throw new Error(INVALID_INVITE);
+      } else {
+        const phone = normalizePhone(recoveryPhone);
+        if (!phone.ok || phone.e164 !== recoveryPhone || phoneVerificationToken.length < 32) {
+          throw new Error(INVALID_INVITE);
+        }
+        const phoneOwner = await db.query("staff").withIndex("by_recoveryPhone", (q) => q.eq("recoveryPhone", recoveryPhone)).unique();
+        if (phoneOwner) throw new Error(INVALID_INVITE);
+        const proofHash = await keyedHash(`signup:${email}:${recoveryPhone}:${phoneVerificationToken}`);
+        const proofRows = await db.query("authChallenges")
+          .withIndex("by_email_purpose", (q) => q.eq("email", email).eq("purpose", "signup_phone"))
+          .order("desc").take(10);
+        const proof = proofRows.find((row) => row.phone === recoveryPhone && row.status === "verified" && row.verificationExpiresAt !== undefined && row.verificationExpiresAt > Date.now() && row.verificationTokenHash === proofHash);
+        if (!proof) throw new Error(INVALID_INVITE);
+        await db.patch(proof._id, { status: "consumed", verificationTokenHash: undefined });
+        verifiedPhone = recoveryPhone;
       }
-      const phoneOwner = await db.query("staff").withIndex("by_recoveryPhone", (q) => q.eq("recoveryPhone", recoveryPhone)).unique();
-      if (phoneOwner) throw new Error(INVALID_INVITE);
-      const proofHash = await keyedHash(`signup:${email}:${recoveryPhone}:${phoneVerificationToken}`);
-      const proofRows = await db.query("authChallenges")
-        .withIndex("by_email_purpose", (q) => q.eq("email", email).eq("purpose", "signup_phone"))
-        .order("desc").take(10);
-      const proof = proofRows.find((row) => row.phone === recoveryPhone && row.status === "verified" && row.verificationExpiresAt !== undefined && row.verificationExpiresAt > Date.now() && row.verificationTokenHash === proofHash);
-      if (!proof) throw new Error(INVALID_INVITE);
-      await db.patch(proof._id, { status: "consumed", verificationTokenHash: undefined });
 
       const userId = await db.insert("users", { email, name });
       await db.insert("staff", {
         userId,
         email,
         name,
-        recoveryPhone,
-        recoveryPhoneVerifiedAt: Date.now(),
+        ...(verifiedPhone ? { recoveryPhone: verifiedPhone, recoveryPhoneVerifiedAt: Date.now() } : {}),
         role: invite.role,
         active: true,
       });
       await db.patch(invite._id, { usedAt: Date.now() });
       await db.insert("auditLog", {
         actor: email,
-        action: "staff.signup",
+        action: ownerBootstrap ? "staff.bootstrap.create" : "staff.signup",
         target: String(userId),
-        meta: invite.role,
+        meta: ownerBootstrap ? "deployment-owner temporary password; recovery phone pending" : invite.role,
       });
       return userId;
     },
