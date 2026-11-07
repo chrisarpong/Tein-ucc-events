@@ -53,7 +53,7 @@ export default function AccountSecurityPage() {
       setPhone(""); setCode(""); setCurrentPassword(""); setRequested(false);
       setNotice("Your verified recovery phone has been updated. You can now use it to sign in or reset your password.");
     } catch {
-      setError("That code is invalid or expired. You can request a new one after four minutes.");
+      setError("Verification could not be completed. Refresh this page to check whether the phone was saved; if not, request a new code after four minutes.");
     } finally { setBusy(false); }
   }
 
