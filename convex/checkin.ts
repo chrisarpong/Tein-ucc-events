@@ -62,6 +62,28 @@ export const search = query({
   },
 });
 
+export const roster = query({
+  args: {},
+  handler: async (ctx) => {
+    await requireStaff(ctx, ["admin", "checkin"]);
+    const event = await ctx.db
+      .query("events")
+      .withIndex("by_slug", (q) => q.eq("slug", EVENT_SLUG))
+      .unique();
+    if (!event) return [];
+
+    const registrations = await ctx.db
+      .query("registrations")
+      .withIndex("by_event_status", (q) =>
+        q.eq("eventId", event._id).eq("status", "registered")
+      )
+      .collect();
+    return registrations
+      .map(checkinResult)
+      .sort((a, b) => a.fullName.localeCompare(b.fullName));
+  },
+});
+
 export const byCode = mutation({
   args: { ticketCode: v.string() },
   handler: async (ctx, { ticketCode }) => {
