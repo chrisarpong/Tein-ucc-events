@@ -68,6 +68,8 @@ Then open `http://localhost:3000/sign-in`.
 
 The SMS API key belongs only in the Convex deployment secret `BULKSMSGH_API_KEY`; never add it to `.env.local`, Vercel client variables, or source control. Set `SMS_SENDER_ID` to `TEIN UCC`; live delivery requires `SMS_DRY_RUN=false`. Authentication recovery codes use a dedicated SMS path and are not stored in the general message log. Set a long random `AUTH_RECOVERY_PEPPER` as a Convex secret on dev and production; it protects recovery code and grant verifiers at rest.
 
+OTP submission follows BulkSMS Ghana's published GET request format. A code remains usable for its one-minute window when the provider response is ambiguous (such as a timeout); a known rejection invalidates it. The Account security page distinguishes an unconfirmed delivery, an expired code, and an incorrect code. The four-minute cooldown still limits new SMS requests.
+
 The BulkSMS Sender ID currently has this OTP URL saved: `https://teinucc.vercel.app/forgot-password`. The provider has placed the TEIN UCC Sender ID on hold while it reviews the URL. The route is now live and returns the recovery page. Do not submit the URL again because the provider dialog says it can only be set once. Recovery, phone verification, and live event messages depend on the provider approving the sender ID and delivery being configured.
 
 ## Remaining activation steps

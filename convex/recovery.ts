@@ -16,6 +16,7 @@ const GENERIC_RESPONSE = "If the details match an eligible staff account, a code
 const purposeValidator = v.union(v.literal("signup_phone"), v.literal("password_reset"), v.literal("phone_change"));
 
 type Purpose = "signup_phone" | "password_reset" | "phone_change";
+type OtpDelivery = "confirmed" | "rejected" | "uncertain";
 
 function normalizedEmail(raw: string) {
   return raw.trim().toLowerCase();
@@ -69,25 +70,41 @@ async function consumeSmsLimits(ctx: MutationCtx, email: string, phone: string, 
 async function sendOtp(phone: string, code: string, purpose: Purpose) {
   const apiKey = process.env.BULKSMSGH_API_KEY?.trim();
   const senderId = process.env.SMS_SENDER_ID?.trim() || "TEIN UCC";
-  if (!apiKey || process.env.SMS_DRY_RUN !== "false" || senderId !== "TEIN UCC") return false;
+  if (!apiKey || process.env.SMS_DRY_RUN !== "false" || senderId !== "TEIN UCC") return "rejected" as const;
   const purposeText = purpose === "signup_phone" ? "verify your staff phone" : purpose === "phone_change" ? "verify your new staff phone" : "reset your Summit CRM password";
-  const form = new URLSearchParams({
+  const params = new URLSearchParams({
     key: apiKey,
     to: phone.replace(/^\+233/, "0"),
     msg: `TEIN UCC Summit CRM: ${code} is your code to ${purposeText}. It expires in 1 minute. If you did not request this, ignore this SMS.`,
     sender_id: senderId,
   });
   try {
-    const response = await fetch(SEND_URL, {
-      method: "POST",
-      headers: { Accept: "text/plain", "Content-Type": "application/x-www-form-urlencoded" },
-      body: form.toString(),
+    const response = await fetch(`${SEND_URL}?${params.toString()}`, {
+      method: "GET",
+      headers: { Accept: "text/plain" },
+      cache: "no-store",
       signal: AbortSignal.timeout(15_000),
     });
-    const responseCode = (await response.text()).trim().slice(0, 4);
-    return response.ok && ["1000", "1007"].includes(responseCode);
-  } catch {
-    return false;
+    const responseBody = (await response.text()).trim();
+    const responseCode = /^\d{4}/.exec(responseBody)?.[0] ?? "unrecognized";
+    if (responseBody === "1000") return response.ok ? "confirmed" as const : "uncertain" as const;
+    if (["1002", "1003", "1004", "1005", "1006", "1008"].includes(responseBody)) {
+      console.error("BulkSMS Ghana did not confirm OTP submission", {
+        httpStatus: response.status,
+        responseCode,
+      });
+      return "rejected" as const;
+    }
+    console.error("BulkSMS Ghana returned an unrecognized OTP response", {
+      httpStatus: response.status,
+      responseCode,
+    });
+    return "uncertain" as const;
+  } catch (error) {
+    console.error("BulkSMS Ghana OTP request ended without confirmation", {
+      errorName: error instanceof Error ? error.name : "unknown",
+    });
+    return "uncertain" as const;
   }
 }
 
@@ -181,11 +198,19 @@ export const verifyCode = internalMutation({
     const challenge = await ctx.db.query("authChallenges")
       .withIndex("by_email_purpose", (q) => q.eq("email", email).eq("purpose", args.purpose))
       .order("desc").first();
-    if (!challenge || challenge.status !== "sent" || challenge.expiresAt <= Date.now()) return { ok: false as const };
+    if (!challenge || challenge.status !== "sent") {
+      return {
+        ok: false as const,
+        reason: challenge?.status === "failed"
+          ? challenge.attempts >= MAX_CODE_ATTEMPTS ? "too_many_attempts" as const : "delivery_failed" as const
+          : "not_ready" as const,
+      };
+    }
+    if (challenge.expiresAt <= Date.now()) return { ok: false as const, reason: "expired" as const };
     if (challenge.codeHash !== args.codeHash) {
       const attempts = challenge.attempts + 1;
       await ctx.db.patch(challenge._id, { attempts, status: attempts >= MAX_CODE_ATTEMPTS ? "failed" : "sent" });
-      return { ok: false as const };
+      return { ok: false as const, reason: attempts >= MAX_CODE_ATTEMPTS ? "too_many_attempts" as const : "invalid_code" as const };
     }
     if (args.purpose === "phone_change") {
       if (!challenge.staffId) return { ok: false as const };
@@ -503,11 +528,13 @@ async function requestCode(ctx: ActionCtx, args: { email: string; phone: string;
       userId: args.userId,
     });
   } catch {
-    return;
+    return "rejected" as const;
   }
-  if (!prepared) return;
-  const accepted = await sendOtp(prepared.phone, code, args.purpose);
+  if (!prepared) return "rejected" as const;
+  const delivery = await sendOtp(prepared.phone, code, args.purpose);
+  const accepted = delivery !== "rejected";
   await ctx.runMutation(internal.recovery.setDeliveryResult, { challengeId: prepared.challengeId, accepted });
+  return delivery;
 }
 
 export const requestSignupPhoneCode = action({
@@ -601,38 +628,47 @@ export const requestMyPhoneChangeCode = action({
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     const phone = normalizePhone(args.phone);
+    let delivery: OtpDelivery = "rejected";
     if (userId && phone.ok) {
       const staff = await ctx.runQuery(internal.recovery.getStaffByUserId, { userId });
       if (staff) {
         try {
           const account = await retrieveAccount(ctx, { provider: "password", account: { id: staff.email, secret: args.currentPassword } });
-          if (account.user._id === userId) await requestCode(ctx, { email: "", phone: phone.e164, purpose: "phone_change", userId });
+          if (account.user._id === userId) delivery = await requestCode(ctx, { email: "", phone: phone.e164, purpose: "phone_change", userId });
         } catch {
           // Keep account and password-check failures indistinguishable.
         }
       }
     }
-    return { success: true, message: "If this number can be used for your staff account, a verification code will be sent." };
+    if (delivery === "confirmed") {
+      return { success: true, deliveryConfirmed: true, message: "Verification code sent. Enter it within one minute." };
+    }
+    if (delivery === "uncertain") {
+      return { success: true, deliveryConfirmed: false, message: "The SMS provider did not confirm delivery. If you received the code, enter it within one minute; otherwise request a new code after four minutes." };
+    }
+    return { success: false, deliveryConfirmed: false, message: "We could not send a verification code. Check the number and current password; if you already requested a code, wait four minutes before trying again." };
   },
 });
 
 export const verifyMyPhoneChangeCode = action({
   args: { phone: v.string(), code: v.string() },
-  handler: async (ctx, args): Promise<{ success: boolean }> => {
+  handler: async (ctx, args): Promise<{ success: boolean; reason?: string }> => {
     const userId = await getAuthUserId(ctx);
     const phone = normalizePhone(args.phone);
-    if (!userId || !phone.ok || !/^\d{8}$/.test(args.code)) return { success: false as const };
+    if (!userId || !phone.ok || !/^\d{8}$/.test(args.code)) return { success: false as const, reason: "invalid_code" };
     const staff: { _id: Id<"staff">; email: string; recoveryPhone?: string } | null = await ctx.runQuery(internal.recovery.getStaffByUserId, { userId });
-    if (!staff) return { success: false as const };
+    if (!staff) return { success: false as const, reason: "not_ready" };
     const challenge: Doc<"authChallenges"> | null = await ctx.runQuery(internal.recovery.getLatestChallenge, { email: staff.email, purpose: "phone_change" });
-    if (!challenge || challenge.phone !== phone.e164) return { success: false as const };
-    const result: { ok: boolean; oldPhone?: string } = await ctx.runMutation(internal.recovery.verifyCode, {
+    if (!challenge || challenge.phone !== phone.e164) return { success: false as const, reason: "not_ready" };
+    const result: { ok: boolean; oldPhone?: string; reason?: string } = await ctx.runMutation(internal.recovery.verifyCode, {
       email: staff.email, purpose: "phone_change", codeHash: await keyedHash(`${challenge.salt}:${args.code}`), grantHash: "unused",
     });
     if (result.ok && result.oldPhone && result.oldPhone !== phone.e164) {
       await sendNotice(result.oldPhone, "TEIN UCC Summit CRM: Your recovery phone was changed. If you did not do this, contact the Summit administrator immediately.");
     }
-    return { success: result.ok };
+    return result.ok
+      ? { success: true as const }
+      : { success: false as const, reason: result.reason ?? "invalid_code" };
   },
 });
 

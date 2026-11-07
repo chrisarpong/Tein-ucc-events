@@ -26,7 +26,10 @@ export default function AccountSecurityPage() {
     event.preventDefault(); setBusy(true); setError(""); setNotice("");
     try {
       const result = await requestCode({ phone, currentPassword });
-      setRequested(true); setCode(""); setNotice(result.message);
+      if (!result.success) { setError(result.message); return; }
+      setRequested(true); setCode("");
+      if (result.deliveryConfirmed) setNotice(result.message);
+      else setError(result.message);
     } catch {
       setError("Could not send a verification code. Wait four minutes before trying again.");
     } finally { setBusy(false); }
@@ -36,7 +39,17 @@ export default function AccountSecurityPage() {
     event.preventDefault(); setBusy(true); setError(""); setNotice("");
     try {
       const result = await verifyCode({ phone, code: code.trim() });
-      if (!result.success) throw new Error("invalid");
+      if (!result.success) {
+        const messages: Record<string, string> = {
+          delivery_failed: "The SMS provider did not confirm delivery, so this code cannot be verified. Wait four minutes from your request, then request a new code.",
+          expired: "This code expired after one minute. Wait until four minutes have passed from your request, then request a new code.",
+          invalid_code: "That code does not match the latest code. Check the SMS and try again.",
+          too_many_attempts: "Too many incorrect attempts. Request a fresh code after four minutes.",
+          not_ready: "There is no active code for this phone number. Request a new code.",
+        };
+        setError(messages[result.reason ?? ""] ?? "Could not verify this code. Request a new one after four minutes.");
+        return;
+      }
       setPhone(""); setCode(""); setCurrentPassword(""); setRequested(false);
       setNotice("Your verified recovery phone has been updated. You can now use it to sign in or reset your password.");
     } catch {
@@ -81,6 +94,7 @@ export default function AccountSecurityPage() {
         <label>8-digit code sent to the new phone<input type="text" inputMode="numeric" autoComplete="one-time-code" required minLength={8} maxLength={8} value={code} onChange={event => setCode(event.target.value.replace(/\D/g, "").slice(0, 8))} /></label>
         <p className="staff-hint">The code expires after one minute. Request another code after four minutes.</p>
         <button className="staff-button staff-button-primary" disabled={busy || code.length !== 8}>{busy ? "Verifying…" : "Verify and save phone"}</button>
+        <button className="staff-button staff-button-outline" type="button" disabled={busy} onClick={() => { setRequested(false); setCode(""); setNotice(""); }}>Back to phone form</button>
       </form>}
     </section>
     <section className="staff-section"><h2>How phone sign-in works</h2><p>Use your verified phone number and your existing password on the staff sign-in page. Your email remains available as a sign-in option.</p></section>
